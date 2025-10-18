@@ -16,7 +16,7 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "/Synapse/",
+  "start_url": "/",
   "display": "standalone",
   "theme_color": "#1A1A24",
   "background_color": "#0A0F",
@@ -46,21 +46,21 @@
       "name": "New Idea",
       "short_name": "New",
       "description": "Start creating a new idea",
-      "url": "/Synapse/?action=new-idea",
+      "url": "/?action=new-idea",
       "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=+", "sizes": "96x96" }]
     },
     {
       "name": "My Messages",
       "short_name": "Inbox",
       "description": "View your conversations",
-      "url": "/Synapse/?action=inbox",
+      "url": "/?action=inbox",
       "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=@", "sizes": "96x96" }]
     },
     {
       "name": "Explore Ideas",
       "short_name": "Explore",
       "description": "Discover new ideas and projects",
-      "url": "/Synapse/?action=explore",
+      "url": "/?action=explore",
       "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=?", "sizes": "96x96" }]
     }
   ]

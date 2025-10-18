@@ -2,30 +2,99 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/Synapse/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/%3CYOUR_REPO_NAME%3E/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1A1A24" />
-    <link rel="manifest" href="/Synapse/manifest.json" />
+    <link rel="manifest" href="/%3CYOUR_REPO_NAME%3E/manifest.json" />
     <title>Synapse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #F9FAFB; /* bg-gray-50 */
+        color: #1F2937; /* text-gray-800 */
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      .dark body {
+        background-color: #0A0A0F;
+        color: #D1D5DB; /* text-gray-300 */
+        background-image: radial-gradient(circle at 25% 25%, rgba(99, 102, 241, 0.1), transparent 50%), radial-gradient(circle at 75% 75%, rgba(168, 85, 247, 0.1), transparent 50%);
+      }
+      .font-space-grotesk {
+        font-family: 'Space Grotesk', sans-serif;
+      }
+      .text-gradient {
+        background: linear-gradient(to right, #6366F1, #8B5CF6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        color: transparent;
+      }
+      @keyframes pulse {
+        50% {
+          box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.4), 0 0 0 0 rgba(52, 211, 153, 0.4);
+        }
+      }
+      .animate-pulse-green {
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(1rem); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fadeInUp {
+        animation: fadeInUp 0.4s ease-out forwards;
+      }
+       /* Custom scrollbar for webkit browsers */
+      .scrollbar-thin::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      /* Light mode scrollbar */
+      .scrollbar-thin::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+      }
+      .scrollbar-thin::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1; /* cool-gray-300 */
+        border-radius: 10px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+      }
+       .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+        background-color: #94a3b8; /* cool-gray-400 */
+      }
+      /* Dark mode scrollbar */
+      .dark .scrollbar-thin::-webkit-scrollbar-track {
+        background: rgba(10, 10, 15, 0.5);
+      }
+      .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+        background-color: #374151;
+        border-radius: 10px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+      }
+       .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+        background-color: #4b5563;
+      }
+    </style>
 
 <link rel="stylesheet" href="/index.css">
 <script type="importmap">
 {
   "imports": {
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "vite": "https://aistudiocdn.com/vite@^7.1.10",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
     "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.4",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+    "vite": "https://aistudiocdn.com/vite@^7.1.10"
   }
 }
 </script>
-  <script type="module" crossorigin src="/Synapse/assets/index-e8c06f05.js"></script>
-  <link rel="stylesheet" href="/Synapse/assets/index-db509fe0.css">
+  <script type="module" crossorigin src="/%3CYOUR_REPO_NAME%3E/assets/index-5b387e7b.js"></script>
 </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
