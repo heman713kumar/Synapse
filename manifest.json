@@ -1,0 +1,67 @@
+{
+  "short_name": "Synapse",
+  "name": "Synapse: Idea & Collaboration Platform",
+  "description": "A platform connecting people with ideas (Thinkers) to people who can execute those ideas (Doers), facilitating collaboration and bringing visions to reality.",
+  "icons": [
+    {
+      "src": "https://placehold.co/192x192/6366f1/ffffff?text=S",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://placehold.co/512x512/6366f1/ffffff?text=S",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/Synapse/",
+  "display": "standalone",
+  "theme_color": "#1A1A24",
+  "background_color": "#0A0F",
+  "categories": ["business", "productivity"],
+  "screenshots": [
+    {
+      "src": "https://placehold.co/1280x720/0A0A0F/D1D5DB?text=Discover+Innovative+Ideas",
+      "type": "image/png",
+      "sizes": "1280x720",
+      "form_factor": "wide"
+    },
+    {
+      "src": "https://placehold.co/720x1280/0A0A0F/D1D5DB?text=Collaborate+with+Doers",
+      "type": "image/png",
+      "sizes": "720x1280",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "https://placehold.co/1280x720/0A0A0F/D1D5DB?text=Visualize+on+the+Idea+Board",
+      "type": "image/png",
+      "sizes": "1280x720",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Idea",
+      "short_name": "New",
+      "description": "Start creating a new idea",
+      "url": "/Synapse/?action=new-idea",
+      "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=+", "sizes": "96x96" }]
+    },
+    {
+      "name": "My Messages",
+      "short_name": "Inbox",
+      "description": "View your conversations",
+      "url": "/Synapse/?action=inbox",
+      "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=@", "sizes": "96x96" }]
+    },
+    {
+      "name": "Explore Ideas",
+      "short_name": "Explore",
+      "description": "Discover new ideas and projects",
+      "url": "/Synapse/?action=explore",
+      "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=?", "sizes": "96x96" }]
+    }
+  ]
+}
