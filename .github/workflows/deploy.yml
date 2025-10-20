@@ -1,0 +1,40 @@
+# C:\Users\hemant\Downloads\synapse\.github\workflows\deploy.yml
+
+name: Deploy Frontend to GitHub Pages
+
+# Correct 'on:' block defining the trigger
+on:
+  push:
+    branches:
+      - main # Or 'master' if that's your default branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ⚙️
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Adjusted based on your local version check v22.18.0 might also work
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install Dependencies 📦
+        run: npm ci
+
+      - name: Build Application 🏗️
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Deploy to GitHub Pages 🚀
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
