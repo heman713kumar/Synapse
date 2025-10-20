@@ -4,64 +4,61 @@
   "description": "A platform connecting people with ideas (Thinkers) to people who can execute those ideas (Doers), facilitating collaboration and bringing visions to reality.",
   "icons": [
     {
-      "src": "https://placehold.co/192x192/6366f1/ffffff?text=S",
+      "src": "/Synapse/icons/icon-192.png", // <= Updated path
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any maskable" // Keep maskable if your icon supports it
     },
     {
-      "src": "https://placehold.co/512x512/6366f1/ffffff?text=S",
+      "src": "/Synapse/icons/icon-512.png", // <= Updated path
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any maskable" // Keep maskable if your icon supports it
     }
   ],
   "start_url": "/Synapse/",
   "display": "standalone",
   "theme_color": "#1A1A24",
-  "background_color": "#0A0F",
+  "background_color": "#0A0A0F", // Corrected color code format
   "categories": ["business", "productivity"],
   "screenshots": [
     {
-      "src": "https://placehold.co/1280x720/0A0A0F/D1D5DB?text=Discover+Innovative+Ideas",
+      "src": "/Synapse/screenshots/screenshot-desktop-1.png", // <= Updated path
       "type": "image/png",
       "sizes": "1280x720",
-      "form_factor": "wide"
+      "form_factor": "wide",
+       "label": "Discover Innovative Ideas" // Added label
     },
     {
-      "src": "https://placehold.co/720x1280/0A0A0F/D1D5DB?text=Collaborate+with+Doers",
+      "src": "/Synapse/screenshots/screenshot-mobile-1.png", // <= Updated path
       "type": "image/png",
       "sizes": "720x1280",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "https://placehold.co/1280x720/0A0A0F/D1D5DB?text=Visualize+on+the+Idea+Board",
-      "type": "image/png",
-      "sizes": "1280x720",
-      "form_factor": "wide"
+      "form_factor": "narrow",
+      "label": "Collaborate with Doers" // Added label
     }
+    // Add more screenshots if desired
   ],
   "shortcuts": [
     {
       "name": "New Idea",
       "short_name": "New",
       "description": "Start creating a new idea",
-      "url": "/Synapse/?action=new-idea",
-      "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=+", "sizes": "96x96" }]
+      "url": "/Synapse/?action=new-idea", // Action param can be handled in App.tsx if needed
+      "icons": [{ "src": "/Synapse/icons/shortcut-new-96.png", "sizes": "96x96" }] // <= Updated path
     },
     {
       "name": "My Messages",
       "short_name": "Inbox",
       "description": "View your conversations",
       "url": "/Synapse/?action=inbox",
-      "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=@", "sizes": "96x96" }]
+      "icons": [{ "src": "/Synapse/icons/shortcut-inbox-96.png", "sizes": "96x96" }] // <= Updated path
     },
     {
       "name": "Explore Ideas",
       "short_name": "Explore",
       "description": "Discover new ideas and projects",
       "url": "/Synapse/?action=explore",
-      "icons": [{ "src": "https://placehold.co/96x96/6366f1/ffffff?text=?", "sizes": "96x96" }]
+      "icons": [{ "src": "/Synapse/icons/shortcut-explore-96.png", "sizes": "96x96" }] // <= Updated path
     }
   ]
 }
