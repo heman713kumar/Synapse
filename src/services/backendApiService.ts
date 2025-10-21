@@ -1,95 +1,97 @@
-// C:\Users\hemant\Downloads\synapse\src\services\backendApiService.ts
-import { User, Idea, FeedItem, Comment, CollaborationRequest, Notification, ProgressStage, Feedback, Milestone, KanbanBoard, Report, NotificationSettings, AchievementId } from '../types'; // Added AchievementId
+import {
+  User,
+  Idea,
+  FeedItem,
+  Comment,
+  CollaborationRequest,
+  Notification,
+  ProgressStage,
+  Feedback,
+  Milestone,
+  KanbanBoard,
+  Report,
+  NotificationSettings,
+  AchievementId,
+  IdeaNode,
+  IdeaBoardVersion,
+  NodeComment
+} from '../types';
 
-// Use environment variable for production API URL, fallback to local for development
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-// --- Helper Types (Assuming based on backend API structure) ---
+// --- Helper Types ---
 interface LoginResponse { user: any; token: string; message?: string; }
 interface RegisterResponse { user: any; token: string; message?: string; error?: string; }
-interface CreateIdeaResponse { idea: Idea; unlockedAchievements: string[]; } // Adjusted based on NewIdeaForm
-interface UpdateStatusResponse { unlockedAchievements: string[]; }
-interface SubmitFeedbackResponse { feedback: Feedback; unlockedAchievements: string[]; }
-interface BoardVersionResponse extends Omit<Idea, 'ideaBoard'> { // Assuming endpoint returns full idea without board
-    nodes: Idea['ideaBoard']['nodes'];
-}
+interface CreateIdeaResponse { idea: Idea; unlockedAchievements: AchievementId[]; }
+interface UpdateStatusResponse { unlockedAchievements: AchievementId[]; }
+interface SubmitFeedbackResponse { feedback: Feedback; unlockedAchievements: AchievementId[]; }
+interface AiAnalysisResponse { analysis: any; timestamp: string; }
+interface AiSuggestionsResponse { suggestions: string[]; basedOn: any; }
+interface BoardVersionResponse extends IdeaBoardVersion { nodes: IdeaNode[] }
+interface MarkReadResponse { message?: string }
+interface VoteResponse extends Idea { }
+interface MilestoneResponse extends Milestone { }
+interface KanbanResponse extends KanbanBoard { }
+interface RefineSummaryResponse { refinedSummary: string }
 
-
-// Enhanced generic API request helper
+// --- Enhanced generic API request helper ---
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  // Add Authorization header if token exists (implement token storage/retrieval)
-  const token = localStorage.getItem('authToken'); // Example: Retrieve token
+  const token = localStorage.getItem('authToken');
   const headers = {
-    'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }), // Add token if present
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(token && { 'Authorization': `Bearer ${token}` }),
     ...options.headers,
   };
-
   try {
     console.log(`🔄 API Call: ${options.method || 'GET'} ${url}`);
-
     const response = await fetch(url, { ...options, headers });
-
-    // Handle non-JSON responses gracefully
     const contentType = response.headers.get('content-type');
     if (!response.ok) {
       let errorMessage = `API error: ${response.status} ${response.statusText}`;
-
-      // Try to extract error message from response body
       if (contentType && contentType.includes('application/json')) {
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorData.error || errorMessage;
-          } catch { /* Ignore parsing error */ }
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch { /* Ignore */ }
       } else {
-          try {
-              const textError = await response.text();
-              if (textError) errorMessage += ` - ${textError}`;
-          } catch { /* Ignore reading text error */ }
+        try {
+          const textError = await response.text();
+          if (textError) errorMessage += ` - ${textError}`;
+        } catch { /* Ignore */ }
       }
-
       console.error(`❌ API Failed: ${url}`, errorMessage);
+      if (response.status === 401 || response.status === 403) {
+        console.error("Authentication error. Consider redirecting to login.");
+      }
       throw new Error(errorMessage);
     }
-
-    // Handle empty responses
     if (response.status === 204 || response.headers.get('content-length') === '0') {
-      console.log(`✅ API Success (204 No Content): ${url}`);
+      console.log(`✅ API Success (${response.status} No Content): ${url}`);
       return {} as T;
     }
-
-    // Validate JSON response
     if (!contentType || !contentType.includes('application/json')) {
       console.error(`❌ API Failed: Non-JSON response from ${url}`);
       throw new Error('Server returned non-JSON response');
     }
-
     const data = await response.json();
-    console.log(`✅ API Success: ${url}`);
+    console.log(`✅ API Success (${response.status}): ${url}`);
     return data;
-
   } catch (error: any) {
     console.error(`❌ API Exception: ${endpoint}`, error);
-
-    // Enhanced error messages
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      throw new Error('Cannot connect to server. Please check if the backend is running.');
+      throw new Error('Cannot connect to server. Please check if the backend is running and reachable.');
     }
-
-    // Rethrow original or formatted error
     throw new Error(error.message || 'An unknown API error occurred');
   }
 }
 
-// Health check (standalone, not via generic helper for pure status check)
+// --- Health check ---
 export const checkBackendHealth = async (): Promise<boolean> => {
   try {
-    const healthUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace('/api', '') + '/health';
-    const response = await fetch(healthUrl, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const backendBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '');
+    const healthUrl = `${backendBaseUrl}/health`;
+    const response = await fetch(healthUrl, { method: 'GET' });
     return response.ok;
   } catch (error) {
     console.log('Backend health check failed:', error);
@@ -97,255 +99,235 @@ export const checkBackendHealth = async (): Promise<boolean> => {
   }
 };
 
-// Define the structure for your actual API calls
-// Note: These need to align exactly with your backend routes and expected data
+// --- API Service Definition ---
 export const api = {
   // --- Auth ---
   login: (credentials: { email: string, password: string }) =>
-    apiRequest<LoginResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    }),
+    apiRequest<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(credentials), }),
 
-  signUp: (userData: any) => // Use a specific type for signup data
-    apiRequest<RegisterResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    }),
+  signUp: (userData: any) =>
+    apiRequest<RegisterResponse>('/auth/register', { method: 'POST', body: JSON.stringify(userData), }),
+
+  verifyToken: (token: string) =>
+    apiRequest<{ valid: boolean; user?: any }>('/auth/verify', { method: 'POST', body: JSON.stringify({ token }), }),
 
   // --- Users ---
-  getUserById: (userId: string) => apiRequest<User>(`/users/${userId}`),
+  getUserById: (userId: string) =>
+    apiRequest<User>(`/users/${userId}`),
 
   updateUser: (userId: string, userData: Partial<User>) =>
-    apiRequest<User>(`/users/${userId}`, {
-      method: 'PUT',
-      body: JSON.stringify(userData),
-    }),
+    apiRequest<User>(`/users/${userId}`, { method: 'PUT', body: JSON.stringify(userData), }),
 
   markOnboardingComplete: (userId: string) =>
-    apiRequest<User>(`/users/${userId}/onboarding`, {
-      method: 'PATCH',
-    }),
+    apiRequest<User>(`/users/${userId}/onboarding`, { method: 'PATCH', }),
+
+  searchUsers: (params: { search?: string; userType?: string; skills?: string[] }) =>
+    apiRequest<User[]>(`/users?${new URLSearchParams(params as any).toString()}`),
 
   // --- Ideas ---
-  getAllIdeas: () => apiRequest<Idea[]>('/ideas'), // Assumes GET /api/ideas exists
+  getAllIdeas: (params?: { category?: string; stage?: string; search?: string }) =>
+    apiRequest<Idea[]>(`/ideas?${new URLSearchParams(params as any).toString()}`),
 
-  getIdeasByOwnerId: (userId: string) => apiRequest<Idea[]>(`/ideas?ownerId=${userId}`), // Needs backend support
+  getIdeasByOwnerId: (userId: string) =>
+    apiRequest<Idea[]>(`/ideas?ownerId=${userId}`),
 
-  getIdeasByCollaboratorId: (userId: string) => apiRequest<Idea[]>(`/ideas?collaboratorId=${userId}`), // Needs backend support
+  getIdeasByCollaboratorId: (userId: string) =>
+    apiRequest<Idea[]>(`/ideas?collaboratorId=${userId}`),
 
-  getIdeaById: (ideaId: string) => apiRequest<Idea>(`/ideas/${ideaId}`),
+  getIdeaById: (ideaId: string) =>
+    apiRequest<Idea>(`/ideas/${ideaId}`),
 
-  addIdea: (ideaData: any) => // Use specific type
-    apiRequest<CreateIdeaResponse>('/ideas', {
+  addIdea: (ideaData: any) =>
+    apiRequest<CreateIdeaResponse>('/ideas', { method: 'POST', body: JSON.stringify(ideaData), }),
+
+  updateIdea: (ideaId: string, ideaData: Partial<Idea>) =>
+    apiRequest<Idea>(`/ideas/${ideaId}`, { method: 'PUT', body: JSON.stringify(ideaData) }),
+
+  updateIdeaProgressStage: (ideaId: string, stage: ProgressStage) =>
+    apiRequest<Idea>(`/ideas/${ideaId}/stage`, { method: 'PATCH', body: JSON.stringify({ stage }) }),
+
+  castVote: (ideaId: string, userId: string, type: 'up' | 'down') =>
+    apiRequest<VoteResponse>(`/ideas/${ideaId}/vote`, {
       method: 'POST',
-      body: JSON.stringify(ideaData),
+      body: JSON.stringify({ userId, type }) // Keep userId for now, backend might use it or token
     }),
 
-   updateIdea: (ideaId: string, ideaData: Partial<Idea>) =>
-      apiRequest<Idea>(`/ideas/${ideaId}`, {
-        method: 'PUT',
-        body: JSON.stringify(ideaData)
-      }),
+  // --- Feed ---
+  getFeedItems: () => apiRequest<FeedItem[]>('/feed'),
 
-   updateIdeaProgressStage: (ideaId: string, stage: ProgressStage) =>
-      apiRequest<Idea>(`/ideas/${ideaId}/stage`, { // Assuming PUT or PATCH endpoint
-          method: 'PATCH', // Or PUT
-          body: JSON.stringify({ stage })
-      }),
+  // --- Comments & Feedback ---
+  getCommentsByIdeaId: (ideaId: string) =>
+    apiRequest<Comment[]>(`/ideas/${ideaId}/comments`),
 
-   castVote: (ideaId: string, userId: string, type: 'up' | 'down') =>
-      apiRequest<Idea>(`/ideas/${ideaId}/vote`, { // Assuming POST endpoint
-          method: 'POST',
-          body: JSON.stringify({ userId, type })
-      }),
+  getCommentsByNodeId: (nodeId: string) =>
+    apiRequest<NodeComment[]>(`/nodes/${nodeId}/comments`), // FIX: Removed unused userId parameter
 
-   // --- Feed ---
-   getFeedItems: () => apiRequest<FeedItem[]>('/feed'), // Assuming GET /api/feed
+  postComment: (ideaId: string, /* userId: string, */ text: string) =>
+    apiRequest<Comment>(`/ideas/${ideaId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }), // Backend gets userId from token
+    }),
 
-   // --- Comments & Feedback ---
-   getCommentsByIdeaId: (ideaId: string) => apiRequest<Comment[]>(`/ideas/${ideaId}/comments`), // Assuming endpoint
+  getFeedbackByIdeaId: (ideaId: string) =>
+    apiRequest<Feedback[]>(`/ideas/${ideaId}/feedback`),
 
-   getCommentsByNodeId: (nodeId: string) => apiRequest<Comment[]>(`/nodes/${nodeId}/comments`), // Assuming endpoint for node comments
+  submitFeedback: (feedbackData: any) =>
+    apiRequest<SubmitFeedbackResponse>(`/ideas/${feedbackData.ideaId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(feedbackData), // Backend gets userId from token
+    }),
 
-   postComment: (ideaId: string, userId: string, text: string) =>
-      apiRequest<Comment>(`/ideas/${ideaId}/comments`, {
-          method: 'POST',
-          body: JSON.stringify({ userId, text }),
-      }),
+  // --- Collaboration ---
+  getCollaborationRequestsByIdeaId: (ideaId: string) =>
+    apiRequest<CollaborationRequest[]>(`/ideas/${ideaId}/collaboration-requests`),
 
-   getFeedbackByIdeaId: (ideaId: string) => apiRequest<Feedback[]>(`/ideas/${ideaId}/feedback`), // Assuming endpoint
+  submitCollaborationRequest: (requestData: any) =>
+    apiRequest<CollaborationRequest>(`/collaborations`, {
+      method: 'POST',
+      body: JSON.stringify(requestData), // Backend gets requesterId from token
+    }),
 
-   submitFeedback: (feedbackData: any) => // Use specific type
-      apiRequest<SubmitFeedbackResponse>(`/ideas/${feedbackData.ideaId}/feedback`, {
-          method: 'POST',
-          body: JSON.stringify(feedbackData),
-      }),
+  updateCollaborationRequestStatus: (collabId: string, status: 'approved' | 'rejected' | 'pending') =>
+    apiRequest<UpdateStatusResponse>(`/collaborations/${collabId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 
-   // --- Collaboration ---
-   getCollaborationRequestsByIdeaId: (ideaId: string) =>
-      apiRequest<CollaborationRequest[]>(`/ideas/${ideaId}/collaboration-requests`), // Assuming endpoint
+  getCollaborationsByUserId: (userId: string) =>
+    apiRequest<any[]>(`/collaborations/user/${userId}`),
 
-   submitCollaborationRequest: (requestData: any) => // Use specific type
-      apiRequest<CollaborationRequest>(`/collaborations`, { // Match backend endpoint
-          method: 'POST',
-          body: JSON.stringify(requestData),
-      }),
+  // --- Idea Board ---
+  updateIdeaBoard: (ideaId: string, nodes: IdeaNode[]) =>
+    apiRequest<Idea>(`/ideas/${ideaId}/board`, { method: 'PUT', body: JSON.stringify({ nodes }) }),
 
-   updateCollaborationRequestStatus: (requestId: string, status: 'approved' | 'denied') =>
-      apiRequest<UpdateStatusResponse>(`/collaborations/${requestId}/status`, { // Assuming PATCH endpoint
-          method: 'PATCH',
-          body: JSON.stringify({ status }),
-      }),
+  saveBoardVersion: (ideaId: string, nodes: IdeaNode[], name: string) =>
+    apiRequest<IdeaBoardVersion>(`/ideas/${ideaId}/board/versions`, {
+      method: 'POST',
+      body: JSON.stringify({ nodes, name })
+    }),
 
-   // --- Idea Board ---
-   updateIdeaBoard: (ideaId: string, nodes: Idea['ideaBoard']['nodes']) =>
-      apiRequest<Idea>(`/ideas/${ideaId}/board`, { // Assuming PUT/PATCH endpoint
-         method: 'PUT',
-         body: JSON.stringify({ nodes })
-      }),
+  getBoardVersions: (ideaId: string) =>
+    apiRequest<IdeaBoardVersion[]>(`/ideas/${ideaId}/board/versions`),
 
-   saveBoardVersion: (ideaId: string, nodes: Idea['ideaBoard']['nodes'], name: string) =>
-       apiRequest<any>(`/ideas/${ideaId}/board/versions`, { // Assuming POST endpoint
-           method: 'POST',
-           body: JSON.stringify({ nodes, name })
-       }),
+  revertToBoardVersion: (ideaId: string, versionId: string) =>
+    apiRequest<BoardVersionResponse>(`/ideas/${ideaId}/board/versions/${versionId}/revert`, { method: 'POST' }),
 
-   getBoardVersions: (ideaId: string) => apiRequest<any[]>(`/ideas/${ideaId}/board/versions`), // Assuming GET endpoint
+  // --- Connections & Messaging ---
+  startConversation: (userId1: string, userId2: string) =>
+    apiRequest<any>(`/chat/conversations/start`, {
+      method: 'POST',
+      body: JSON.stringify({ participants: [userId1, userId2] })
+    }),
 
-   revertToBoardVersion: (ideaId: string, versionId: string) =>
-       apiRequest<BoardVersionResponse>(`/ideas/${ideaId}/board/versions/${versionId}/revert`, { // Assuming POST endpoint
-           method: 'POST'
-       }),
+  getConversationsByUserId: () =>
+    apiRequest<any[]>(`/chat/conversations`),
 
+  getMessagesByConversationId: (conversationId: string) =>
+    apiRequest<any[]>(`/chat/${conversationId}`), // Needs backend adjustment?
 
-   // --- Connections & Messaging ---
-   startConversation: (userId1: string, userId2: string) =>
-       apiRequest<any>(`/chat/conversations/start`, { // Assuming POST endpoint
-           method: 'POST',
-           body: JSON.stringify({ participants: [userId1, userId2] })
-       }),
+  sendMessage: (conversationId: string, text: string, options?: any) =>
+    // SenderId from token
+    apiRequest<any>(`/chat/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ text, ...options }),
+    }),
 
-   getConversationsByUserId: () => apiRequest<any[]>(`/chat/conversations`), // Removed unused userId parameter
+  addReactionToMessage: (messageId: string, emoji: string) =>
+    // UserId from token
+    apiRequest<any>(`/chat/messages/${messageId}/reactions`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji })
+    }),
 
-   getMessagesByConversationId: (conversationId: string) => apiRequest<any[]>(`/chat/${conversationId}`), // Match backend endpoint
+  acceptMessageRequest: (conversationId: string) =>
+    apiRequest<any>(`/chat/requests/${conversationId}/accept`, { method: 'POST' }),
 
-   sendMessage: (conversationId: string, senderId: string, text: string, options?: any) =>
-     apiRequest<any>(`/chat/${conversationId}/messages`, { // Assuming POST endpoint
-       method: 'POST',
-       body: JSON.stringify({ senderId, text, ...options }),
-     }),
+  markMessagesRead: (otherUserId: string) =>
+    apiRequest<MarkReadResponse>(`/chat/${otherUserId}/read`, { method: 'POST' }),
 
-   addReactionToMessage: (messageId: string, userId: string, emoji: string) =>
-     apiRequest<any>(`/chat/messages/${messageId}/reactions`, { // Assuming POST endpoint
-        method: 'POST',
-        body: JSON.stringify({ userId, emoji })
-     }),
+  // --- Notifications ---
+  getNotificationsByUserId: (userId: string) => apiRequest<Notification[]>(`/users/${userId}/notifications`),
 
-   acceptMessageRequest: (conversationId: string) =>
-     apiRequest<any>(`/chat/requests/${conversationId}/accept`, { // Assuming POST endpoint
-        method: 'POST'
-     }),
+  markAllNotificationsAsRead: (userId: string) =>
+    apiRequest<MarkReadResponse>(`/users/${userId}/notifications/read`, { method: 'PUT', }),
 
+  updateNotificationSettings: (userId: string, settings: NotificationSettings) =>
+    apiRequest<User>(`/users/${userId}/settings/notifications`, { method: 'PUT', body: JSON.stringify(settings) }),
 
-   // --- Notifications ---
-   getNotificationsByUserId: (userId: string) =>
-      apiRequest<Notification[]>(`/users/${userId}/notifications`), // Assuming endpoint
+  // --- Forum ---
+  getForumMessages: (ideaId: string) =>
+    apiRequest<any[]>(`/ideas/${ideaId}/forum/messages`),
 
-   markAllNotificationsAsRead: (userId: string) =>
-      apiRequest<void>(`/users/${userId}/notifications/read`, { // Assuming endpoint
-          method: 'PUT', // Or POST/PATCH
-      }),
+  postForumMessage: (ideaId: string, text: string) =>
+    // SenderId from token
+    apiRequest<any>(`/ideas/${ideaId}/forum/messages`, { method: 'POST', body: JSON.stringify({ text }) }),
 
-   updateNotificationSettings: (userId: string, settings: NotificationSettings) =>
-      apiRequest<User>(`/users/${userId}/settings/notifications`, { // Assuming PUT/PATCH endpoint
-          method: 'PUT',
-          body: JSON.stringify(settings)
-      }),
+  addForumMember: (ideaId: string, userIdToAdd: string) =>
+    apiRequest<boolean>(`/ideas/${ideaId}/forum/members`, { method: 'POST', body: JSON.stringify({ userId: userIdToAdd }) }),
 
-   // --- Forum ---
-   getForumMessages: (ideaId: string) => apiRequest<any[]>(`/ideas/${ideaId}/forum`), // Assuming endpoint
-   postForumMessage: (ideaId: string, senderId: string, text: string) =>
-       apiRequest<any>(`/ideas/${ideaId}/forum`, { // Assuming endpoint
-           method: 'POST',
-           body: JSON.stringify({ senderId, text })
-       }),
-   addForumMember: (ideaId: string, userId: string) =>
-       apiRequest<boolean>(`/ideas/${ideaId}/forum/members`, { // Assuming endpoint
-           method: 'POST',
-           body: JSON.stringify({ userId })
-       }),
-    removeForumMember: (ideaId: string, userId: string) =>
-        apiRequest<boolean>(`/ideas/${ideaId}/forum/members/${userId}`, { // Assuming endpoint
-            method: 'DELETE'
-        }),
-   deleteForumMessage: (messageId: string) =>
-       apiRequest<void>(`/forum/messages/${messageId}`, { // Assuming endpoint
-           method: 'DELETE'
-       }),
-   pinForumMessage: (messageId: string) =>
-       apiRequest<void>(`/forum/messages/${messageId}/pin`, { // Assuming endpoint
-           method: 'POST' // Or PATCH
-       }),
+  removeForumMember: (ideaId: string, userIdToRemove: string) =>
+    apiRequest<boolean>(`/ideas/${ideaId}/forum/members/${userIdToRemove}`, { method: 'DELETE' }),
 
+  deleteForumMessage: (messageId: string) =>
+    apiRequest<void>(`/forum/messages/${messageId}`, { method: 'DELETE' }),
 
-   // --- Achievements & Gamification ---
-   getUserAchievements: (userId: string) => apiRequest<any[]>(`/users/${userId}/achievements`), // Assuming endpoint
-   shareAchievementToFeed: (userId: string, achievementId: AchievementId) =>
-       apiRequest<void>(`/feed/achievement`, { // Assuming endpoint
-           method: 'POST',
-           body: JSON.stringify({ userId, achievementId })
-       }),
+  pinForumMessage: (messageId: string) =>
+    apiRequest<void>(`/forum/messages/${messageId}/pin`, { method: 'POST' }),
 
+  // --- Achievements & Gamification ---
+  getUserAchievements: (userId: string) =>
+    apiRequest<any[]>(`/users/${userId}/achievements`),
 
-   // --- Analytics ---
-   getAnalyticsForIdea: (ideaId: string) => apiRequest<any>(`/ideas/${ideaId}/analytics`), // Assuming endpoint
+  shareAchievementToFeed: (/* userId: string, */ achievementId: AchievementId) =>
+    // UserId from token
+    apiRequest<void>(`/feed/achievement`, { method: 'POST', body: JSON.stringify({ achievementId }) }),
 
+  // --- Analytics ---
+  getAnalyticsForIdea: (ideaId: string) =>
+    apiRequest<any>(`/ideas/${ideaId}/analytics`),
 
-   // --- Skills & Endorsements ---
-   endorseSkill: (targetUserId: string, endorserUserId: string, skillName: string) =>
-       apiRequest<User>(`/users/${targetUserId}/skills/endorse`, { // Assuming endpoint
-           method: 'POST',
-           body: JSON.stringify({ endorserUserId, skillName })
-       }),
+  // --- Skills & Endorsements ---
+  endorseSkill: (targetUserId: string, skillName: string) =>
+    // EndorserId from token
+    apiRequest<User>(`/users/${targetUserId}/skills/endorse`, {
+      method: 'POST',
+      body: JSON.stringify({ skillName })
+    }),
 
-   // --- Reports ---
-   submitReport: (reportData: Report) =>
-      apiRequest<any>(`/reports`, { // Assuming endpoint
-          method: 'POST',
-          body: JSON.stringify(reportData)
-      }),
+  // --- Reports ---
+  submitReport: (reportData: Omit<Report, 'reporterId' | 'reportId' | 'createdAt' | 'status'>) =>
+    // ReporterId from token
+    apiRequest<any>(`/reports`, { method: 'POST', body: JSON.stringify(reportData) }),
 
-   // --- Milestones & Kanban ---
-   addMilestone: (ideaId: string, milestoneData: any) =>
-      apiRequest<Milestone>(`/ideas/${ideaId}/milestones`, { // Assuming endpoint
-         method: 'POST',
-         body: JSON.stringify(milestoneData)
-      }),
-   editMilestone: (ideaId: string, milestoneId: string, milestoneData: any) =>
-      apiRequest<Milestone>(`/ideas/${ideaId}/milestones/${milestoneId}`, { // Assuming endpoint
-         method: 'PUT',
-         body: JSON.stringify(milestoneData)
-      }),
-   deleteMilestone: (ideaId: string, milestoneId: string) =>
-      apiRequest<void>(`/ideas/${ideaId}/milestones/${milestoneId}`, { // Assuming endpoint
-         method: 'DELETE'
-      }),
-   completeMilestone: (ideaId: string, milestoneId: string) =>
-      apiRequest<any>(`/ideas/${ideaId}/milestones/${milestoneId}/complete`, { // Assuming endpoint
-         method: 'POST'
-      }),
-   updateKanbanBoard: (ideaId: string, boardData: KanbanBoard) =>
-      apiRequest<KanbanBoard>(`/ideas/${ideaId}/kanban`, { // Assuming endpoint
-         method: 'PUT',
-         body: JSON.stringify(boardData)
-      }),
+  // --- Milestones & Kanban ---
+  addMilestone: (ideaId: string, milestoneData: any) =>
+    apiRequest<MilestoneResponse>(`/ideas/${ideaId}/milestones`, { method: 'POST', body: JSON.stringify(milestoneData) }),
 
+  editMilestone: (ideaId: string, milestoneId: string, milestoneData: any) =>
+    apiRequest<MilestoneResponse>(`/ideas/${ideaId}/milestones/${milestoneId}`, { method: 'PUT', body: JSON.stringify(milestoneData) }),
 
-   // --- AI Recommendations (example) ---
-    getRecommendedCollaborators: (ideaId: string) => apiRequest<any[]>(`/ideas/${ideaId}/recommendations/collaborators`), // Assuming endpoint
+  deleteMilestone: (ideaId: string, milestoneId: string) =>
+    apiRequest<void>(`/ideas/${ideaId}/milestones/${milestoneId}`, { method: 'DELETE' }),
 
+  completeMilestone: (ideaId: string, milestoneId: string) =>
+    apiRequest<any>(`/ideas/${ideaId}/milestones/${milestoneId}/complete`, { method: 'POST' }),
 
+  updateKanbanBoard: (ideaId: string, boardData: KanbanBoard) =>
+    apiRequest<KanbanResponse>(`/ideas/${ideaId}/kanban`, { method: 'PUT', body: JSON.stringify(boardData) }),
+
+  // --- AI Recommendations ---
+  getRecommendedCollaborators: (ideaId: string) =>
+    apiRequest<any[]>(`/ideas/${ideaId}/recommendations/collaborators`),
+
+  // --- AI functions previously called directly from frontend ---
+  analyzeIdea: (ideaData: { title: string; description: string; category?: string; ideaId?: string }) =>
+    apiRequest<AiAnalysisResponse>('/ai/analyze-idea', { method: 'POST', body: JSON.stringify(ideaData), }),
+
+  refineSummary: (data: { summary: string }) =>
+    apiRequest<RefineSummaryResponse>(`/ai/refine-summary`, { method: 'POST', body: JSON.stringify(data) }),
+
+  getIdeaSuggestions: () =>
+    apiRequest<AiSuggestionsResponse>(`/ai/idea-suggestions`),
 };
 
 export default api;
