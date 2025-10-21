@@ -21,17 +21,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20' # Or '22'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
+        # Keep cache disabled for now
+        # cache: 'npm'
+        # cache-dependency-path: package-lock.json
 
       - name: Install Dependencies 📦
-        run: |
-          npm ci
-          npm cache clean --force
+        run: npm ci # Keep clean install
 
       - name: Build Application 🏗️
-        # FIX: Explicitly pass the base path to the build command
-        run: npm run build -- --base=/Synapse/
+        # FIX: Explicitly specify config file AND base path
+        run: npm run build -- -c vite.config.ts --base=/Synapse/
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
