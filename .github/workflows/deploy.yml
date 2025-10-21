@@ -2,7 +2,6 @@
 
 name: Deploy Frontend to GitHub Pages
 
-# Correct 'on:' block defining the trigger
 on:
   push:
     branches:
@@ -21,12 +20,15 @@ jobs:
       - name: Set up Node.js ⚙️
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Adjusted based on your local version check v22.18.0 might also work
+          node-version: '20' # Or '22' to match your local v22.18.0
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
       - name: Install Dependencies 📦
-        run: npm ci
+        # FIX: Added cache clean step
+        run: |
+          npm ci
+          npm cache clean --force
 
       - name: Build Application 🏗️
         run: npm run build
