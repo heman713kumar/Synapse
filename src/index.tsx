@@ -1,6 +1,7 @@
+// C:\Users\hemant\Downloads\synapse\src\index.tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import App from './App'; // Assuming App.tsx is now in src/
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -15,10 +16,10 @@ root.render(
   </React.StrictMode>
 );
 
-// Conditionally register the service worker only on the production origin.
+// --- TEMPORARILY COMMENTED OUT SERVICE WORKER REGISTRATION ---
+/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // The official production origin for GitHub Pages.
     const PRODUCTION_ORIGIN = "https://heman713kumar.github.io";
 
     if (window.location.origin === PRODUCTION_ORIGIN) {
@@ -30,10 +31,12 @@ if ('serviceWorker' in navigator) {
           console.error("Service Worker registration failed:", error);
         });
     } else {
-      // Prevent registration in any non-production or sandbox environment.
       console.log("Service Worker registration skipped. Current origin:", window.location.origin);
     }
   });
 } else {
     console.log("Service workers are not supported in this browser.");
 }
+*/
+console.log("Service Worker registration is currently DISABLED for testing.");
+// --- END OF TEMPORARY COMMENT OUT ---
