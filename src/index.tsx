@@ -16,13 +16,14 @@ root.render(
   </React.StrictMode>
 );
 
-// --- TEMPORARILY COMMENTED OUT SERVICE WORKER REGISTRATION ---
-/*
+// --- RE-ENABLED SERVICE WORKER REGISTRATION ---
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // Your production origin
     const PRODUCTION_ORIGIN = "https://heman713kumar.github.io";
 
-    if (window.location.origin === PRODUCTION_ORIGIN) {
+    // Register only on the production origin
+    if (window.location.origin === PRODUCTION_ORIGIN || window.location.hostname === 'localhost') { // Also allow for localhost testing if needed
       navigator.serviceWorker.register("/Synapse/sw.js", { scope: "/Synapse/" })
         .then(registration => {
           console.log("Service Worker registered:", registration);
@@ -31,12 +32,11 @@ if ('serviceWorker' in navigator) {
           console.error("Service Worker registration failed:", error);
         });
     } else {
+      // Skip registration in other environments (like Netlify previews, etc.)
       console.log("Service Worker registration skipped. Current origin:", window.location.origin);
     }
   });
 } else {
     console.log("Service workers are not supported in this browser.");
 }
-*/
-console.log("Service Worker registration is currently DISABLED for testing.");
-// --- END OF TEMPORARY COMMENT OUT ---
+// --- END OF SERVICE WORKER REGISTRATION ---
