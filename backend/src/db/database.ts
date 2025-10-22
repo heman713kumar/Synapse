@@ -1,16 +1,16 @@
 // C:\Users\hemant\Downloads\synapse\backend\src\db\database.ts
 import { Pool, PoolConfig, QueryResult, QueryResultRow } from 'pg';
 import dotenv from 'dotenv';
-import { parse } from 'pg-connection-string'; // Import parser
+import { parse } from 'pg-connection-string'; // Import the parser
 
 dotenv.config();
 
-// Parse the connection string
+// Parse the connection string from environment variables
 const dbUrl = process.env.DATABASE_URL;
 if (!dbUrl) {
     throw new Error("DATABASE_URL environment variable is not set!");
 }
-const dbConfig = parse(dbUrl);
+const dbConfig = parse(dbUrl); // Use the parser
 
 // Explicitly define Pool configuration options
 const poolConfig: PoolConfig = {
@@ -28,6 +28,7 @@ const poolConfig: PoolConfig = {
     family: 4, // Force IPv4
 };
 
+// Create the pool with the explicit config
 export const pool = new Pool(poolConfig);
 
 // Test database connection
