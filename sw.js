@@ -1,55 +1,49 @@
 // sw.js
 
-const CACHE_NAME = 'synapse-cache-v13'; // Incremented cache version
+const CACHE_NAME = 'synapse-cache-v14'; // Incremented cache version again
 
 // Using absolute paths to match the deployment sub-path.
+// Ensure index.html and manifest.json are included for the app shell.
 const APP_SHELL_URLS = [
-  '/Synapse/',
+  '/Synapse/', // Important for matching the root navigation request
   '/Synapse/index.html',
   '/Synapse/manifest.json',
-  '/Synapse/vite.svg',
-  // Add paths to your actual icons/screenshots if you want them cached immediately
+  // Include essential icons if needed for immediate display
   '/Synapse/icons/icon-192.png',
   '/Synapse/icons/icon-512.png',
-  // Add other essential CSS/JS assets if known beforehand (Vite usually handles this via fetch)
+  // Add favicon if you want it cached
+  '/Synapse/favicon.ico'
 ];
 
 self.addEventListener('install', event => {
-  console.log('Service Worker: Install event');
-  // Ensure the service worker takes control immediately if possible
-  self.skipWaiting();
+  console.log(`Service Worker (${CACHE_NAME}): Install event`);
+  self.skipWaiting(); // Force activation
 
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Service Worker: Caching app shell');
-        // Use addAll with error catching for individual asset failures
+        console.log(`Service Worker (${CACHE_NAME}): Caching app shell`);
         return cache.addAll(APP_SHELL_URLS).catch(error => {
-           console.error('Service Worker: Failed to cache some app shell URLs:', error);
-           // Even if some assets fail, the SW install might proceed
+           console.error(`Service Worker (${CACHE_NAME}): Failed to cache some app shell URLs:`, error);
         });
       })
       .catch(error => {
-        console.error('Service Worker: Cache open/addAll failed', error);
+        console.error(`Service Worker (${CACHE_NAME}): Cache open/addAll failed`, error);
       })
   );
 });
 
 self.addEventListener('activate', event => {
-  console.log('Service Worker: Activate event');
-  // Ensure the activated service worker takes control of the page immediately
-  event.waitUntil(clients.claim());
+  console.log(`Service Worker (${CACHE_NAME}): Activate event`);
+  event.waitUntil(clients.claim()); // Take control immediately
 
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames
-          .filter(cacheName => {
-            // Delete caches that start with 'synapse-cache-' but are not the current version
-            return cacheName.startsWith('synapse-cache-') && cacheName !== CACHE_NAME;
-          })
+          .filter(cacheName => cacheName.startsWith('synapse-cache-') && cacheName !== CACHE_NAME)
           .map(cacheName => {
-            console.log('Service Worker: Deleting old cache:', cacheName);
+            console.log(`Service Worker (${CACHE_NAME}): Deleting old cache:`, cacheName);
             return caches.delete(cacheName);
           })
       );
@@ -60,67 +54,65 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const { request } = event;
 
-  // --- Navigation requests: Network-first, fallback to cache (offline page) ---
+  // Strategy: Network first for navigation, then cache fallback for offline.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then(networkResponse => {
-           // Optional: Cache successful navigation responses if needed
-           // const responseClone = networkResponse.clone();
-           // caches.open(CACHE_NAME).then(cache => cache.put(request, responseClone));
+           // Optional: Cache successful navigation response if needed for faster subsequent loads
+           // Make sure to cache the correct URL (e.g., /Synapse/)
+           if (networkResponse.ok) {
+               const responseClone = networkResponse.clone();
+               caches.open(CACHE_NAME).then(cache => cache.put(request.url, responseClone));
+           }
            return networkResponse;
          })
         .catch(async () => {
-          // Network failed, try to return the cached index.html (offline fallback)
-          console.log('Service Worker: Network fetch failed for navigation, serving cached index.html');
+          // Network failed, try cache for the main index.html
+          console.log(`Service Worker (${CACHE_NAME}): Network fetch failed for navigation. Trying cache for /Synapse/index.html`);
           const cache = await caches.open(CACHE_NAME);
-          // Match the main entry point
+          // Explicitly match index.html
           const cachedResponse = await cache.match('/Synapse/index.html');
-          return cachedResponse || Response.error(); // Return error if index isn't cached
+          if (cachedResponse) {
+              return cachedResponse;
+          }
+          // Fallback if even index.html isn't cached (shouldn't happen after install)
+          console.error(`Service Worker (${CACHE_NAME}): Offline fallback page /Synapse/index.html not found in cache.`);
+          return new Response("Network error: You appear to be offline and the requested page isn't cached.", { status: 503, statusText: 'Service Unavailable', headers: { 'Content-Type': 'text/plain' } });
         })
     );
-    return; // Don't execute further code for navigation requests
+    return;
   }
 
-  // --- Other requests (assets, API calls etc.): Cache-first, fallback to network ---
-  // Ignore API calls or other specific paths if they shouldn't be cached
+  // Strategy: Cache first, then network fallback for static assets.
+  // Ignore API calls.
    if (request.url.includes('/api/')) {
-      // Don't cache API calls, always fetch from network
       event.respondWith(fetch(request));
       return;
    }
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async cache => {
-      // 1. Try to find the response in the cache
       const cachedResponse = await cache.match(request);
       if (cachedResponse) {
-        // console.log('Service Worker: Serving from cache:', request.url);
+        // Serve from cache
         return cachedResponse;
       }
 
-      // 2. If not in cache, fetch from the network
-      // console.log('Service Worker: Fetching from network:', request.url);
+      // Not in cache, fetch from network
       try {
          const networkResponse = await fetch(request);
-         // 3. If fetch is successful, clone it and cache it
          if (networkResponse && networkResponse.ok) {
-             // Check if it's a type of response we should cache (e.g., ignore opaque responses)
+             // Cache only valid responses from the app's origin or basic types
              if (networkResponse.type === 'basic' || request.url.startsWith(self.location.origin)) {
                  const responseClone = networkResponse.clone();
-                 // console.log('Service Worker: Caching network response:', request.url);
                  cache.put(request, responseClone);
              }
          }
          return networkResponse;
       } catch (error) {
-          console.error('Service Worker: Network fetch failed, and not in cache:', request.url, error);
-          // Optional: Return a custom offline response for assets if needed
-          // For example, return a placeholder image if an image fetch fails offline
-          // if (request.destination === 'image') {
-          //    return cache.match('/Synapse/placeholder-image.png');
-          // }
-          return Response.error(); // Generic error response
+          console.error(`Service Worker (${CACHE_NAME}): Network fetch failed, not in cache:`, request.url, error);
+          return Response.error(); // Generic network error response
       }
     })
   );
