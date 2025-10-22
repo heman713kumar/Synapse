@@ -1,5 +1,5 @@
 // C:\Users\hemant\Downloads\synapse\backend\src\db\database.ts
-import { Pool, PoolConfig, QueryResult, QueryResultRow } from 'pg'; // Import PoolConfig
+import { Pool, PoolConfig, QueryResult, QueryResultRow } from 'pg';
 import dotenv from 'dotenv';
 import { parse } from 'pg-connection-string'; // Import parser
 
@@ -23,8 +23,9 @@ const poolConfig: PoolConfig = {
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
-    // FIX: Add family: 4 to prefer IPv4
-    family: 4,
+    // FIX: Add ts-ignore to bypass strict type check for 'family'
+    // @ts-ignore
+    family: 4, // Force IPv4
 };
 
 export const pool = new Pool(poolConfig);
