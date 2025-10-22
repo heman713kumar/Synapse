@@ -27,11 +27,13 @@ jobs:
         run: npm ci
 
       - name: Build Application 🏗️
-        # FIX: List contents of dist AFTER build
+        # FIX: List contents of dist/assets AFTER build
         run: |
           npm run build -- -c vite.config.ts --base=/Synapse/
           echo "--- Contents of dist: ---"
           ls -la dist
+          echo "--- Contents of dist/assets: ---"
+          ls -la dist/assets
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
