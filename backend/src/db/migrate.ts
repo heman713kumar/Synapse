@@ -11,7 +11,7 @@ async function migrate() {
     console.error('❌ Migration failed:', error);
     // Ensure process exits with error code if run directly
     if (process.env.NODE_ENV !== 'test') { // Avoid exiting during tests
-        await pool.end().catch(err: any => console.error("Error ending pool:", err));
+        await pool.end().catch((err: any) => console.error("Error ending pool:", err));
         process.exit(1);
     } else {
         throw error; // Rethrow for testing frameworks
@@ -19,7 +19,7 @@ async function migrate() {
   } finally {
     // Only end pool if not testing and not already exited due to error
      if (process.env.NODE_ENV !== 'test') {
-        await pool.end().catch(err: any => console.error("Error ending pool:", err));
+        await pool.end().catch((err: any) => console.error("Error ending pool:", err));
      }
   }
 }

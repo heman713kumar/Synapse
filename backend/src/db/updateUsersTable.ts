@@ -20,12 +20,12 @@ const updateUsersTable = async () => {
 updateUsersTable()
     .then(async () => {
         console.log('🎉 Users table update completed!');
-        await pool.end().catch(err: any => console.error("Error ending pool:", err));
+        await pool.end().catch((err: any) => console.error("Error ending pool:", err));
         if (process.env.NODE_ENV !== 'test') process.exit(0);
     })
     .catch(async error => {
         console.error('💥 Users table update failed:', error);
-        await pool.end().catch(err: any => console.error("Error ending pool:", err));
+        await pool.end().catch((err: any) => console.error("Error ending pool:", err));
         if (process.env.NODE_ENV !== 'test') process.exit(1);
     });
 
