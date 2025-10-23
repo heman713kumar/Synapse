@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { query } from '../db/database';
+import { query } from '../db/database.js';
 
 export const setupSocketIO = (server: any) => {
   const io = new Server(server, {

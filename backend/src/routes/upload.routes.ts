@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
-import { upload } from '../middleware/upload.middleware';
-import { query } from '../db/database';
+import { authenticateToken } from '../middleware/auth.middleware.js';
+import { upload } from '../middleware/upload.middleware.js';
+import { query } from '../db/database.js';
 
 const router: Router = express.Router();
 
