@@ -239,7 +239,7 @@ const App: React.FC = () => {
                 return <NotificationSettings currentUser={currentUser} setCurrentUser={setCurrentUser} setPage={handleNavigation} />;
             case 'profile':
                 if (isGuest || !currentUser) return null;
-                return <Profile userId={selectedUserId || currentUser.userId} currentUser={currentUser} setPage={handleNavigation} />;
+                return <Profile userId={selectedUserId || currentUser.id} currentUser={currentUser} setPage={handleNavigation} />;
             case 'ideaDetail':
                 if (selectedIdeaId) return <IdeaDetail ideaId={selectedIdeaId} currentUser={currentUser} isGuest={isGuest} setPage={handleNavigation} onAchievementsUnlock={handleUnlockAchievements} onGuestAction={handleGuestAction} />;
                 break;
