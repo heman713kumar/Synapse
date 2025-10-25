@@ -28,9 +28,7 @@ const ConnectionTest: React.FC = () => {
     testBackendConnection();
   }, []);
 
-  const frontendUrl = window.location.origin;
-  // Derive backend base URL from the VITE_API_URL or fallback
-  const backendBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace('/api', '');
+  const backendBaseUrl = (import.meta.env.VITE_API_URL || 'https://synapse-backend-api.onrender.com/api').replace('/api', '');
 
   return (
     <div className="p-5 bg-gray-100 dark:bg-gray-800 m-5 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-200">

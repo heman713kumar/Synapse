@@ -7,8 +7,8 @@ import {
   ForumMessage // Make sure ForumMessage is imported if used elsewhere, although not directly here
 } from '../types';
 
-// Use environment variable for API URL, fallback to localhost
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Use environment variable for API URL - FIXED for production
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://synapse-backend-api.onrender.com/api';
 
 // Internal variable to hold the token, initialized from localStorage
 let authToken: string | null = localStorage.getItem('authToken');
