@@ -18,7 +18,7 @@ import ideasRoutes from './routes/ideas.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import aiRoutes from './routes/ai.routes.js';
-import feedRoutes from './routes/feed.routes.js'; // ← ADD THIS IMPORT
+import feedRoutes from './routes/feed.routes.js'; // ← IMPORT IS HERE
 
 dotenv.config();
 
@@ -37,7 +37,7 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Ensure uploads directory exists - using process.cwd()
+// Ensure uploads directory exists
 const uploadsPath = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsPath)) {
     console.log(`Creating uploads directory: ${uploadsPath}`);
@@ -65,7 +65,7 @@ app.use('/api/ideas', ideasRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/feed', feedRoutes); // ← ADD THIS ROUTE REGISTRATION
+app.use('/api/feed', feedRoutes); // ← ROUTE IS REGISTERED HERE
 
 // Basic API info
 app.get('/api', (req: Request, res: Response) => {
@@ -79,7 +79,7 @@ app.get('/api', (req: Request, res: Response) => {
           chat: '/api/chat',
           upload: '/api/upload',
           ai: '/api/ai',
-          feed: '/api/feed' // ← ADD THIS TO THE ENDPOINTS LIST
+          feed: '/api/feed' // ← ENDPOINT IS LISTED HERE
         }
     });
 });
