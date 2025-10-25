@@ -39,10 +39,19 @@ export const Login: React.FC<LoginProps> = ({ setCurrentUser, setPage, onGuestLo
                     
                     // Fetch the full user object to get onboarding status
                     const fullUser = await api.getUserById(response.user.userId || (response.user as any).id);
-                    setCurrentUser(fullUser); // Set the full user
                     
-                    // Navigate based on onboarding status
-                    setPage(fullUser.onboardingCompleted ? 'feed' : 'onboarding');
+                    // --- THIS IS THE FIX ---
+                    // We must check if fullUser is null before using it
+                    if (fullUser) {
+                        setCurrentUser(fullUser); // Set the full user
+                        // Navigate based on onboarding status
+                        setPage(fullUser.onboardingCompleted ? 'feed' : 'onboarding');
+                    } else {
+                        // This case should be rare, but handles data consistency errors
+                        throw new Error("Login succeeded, but user data could not be found.");
+                    }
+                    // --- END OF FIX ---
+                    
                 } else {
                     setError('Login failed. Please check your credentials.');
                 }
