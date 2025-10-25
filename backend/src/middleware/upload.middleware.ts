@@ -2,17 +2,12 @@ import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import { Request } from 'express';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-// ES modules equivalent of __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 type DestinationCallback = (error: Error | null, destination: string) => void;
 type FileNameCallback = (error: Error | null, filename: string) => void;
 
-// Ensure uploads directory exists
-const uploadsDir = path.resolve(__dirname, '../../uploads/');
+// Use process.cwd() instead of __dirname
+const uploadsDir = path.resolve(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     console.log(`Creating uploads directory: ${uploadsDir}`);
     fs.mkdirSync(uploadsDir, { recursive: true });
@@ -28,7 +23,6 @@ const storage = multer.diskStorage({
   }
 });
 
-// Fixed fileFilter with proper typing
 const fileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
   if (file.mimetype.startsWith('image/') ||
       file.mimetype === 'application/pdf' ||
@@ -36,7 +30,6 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallb
       file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     cb(null, true);
   } else {
-    // For better error handling, reject without stopping the entire upload process
     cb(null, false);
   }
 };
@@ -44,12 +37,11 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallb
 export const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 10 * 1024 * 1024,
   },
   fileFilter: fileFilter
 });
 
-// Placeholder for Cloudflare R2 upload
 export const handleR2Upload = async (file: Express.Multer.File) => {
     console.warn("R2 Upload not fully implemented. Using placeholder URL.");
     const key = file.filename;
