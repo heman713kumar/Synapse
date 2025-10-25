@@ -6,16 +6,15 @@ import { query } from '../db/database.js';
 
 const router = express.Router();
 
-// Helper function to get expiresIn value (number in seconds)
-function getExpiresInSeconds(): number {
+// --- (FIXED) Helper function to get expiresIn value ---
+// This now returns the string (e.g., "7d") or the default,
+// which the jwt.sign library knows how to parse correctly.
+function getExpiresIn(): string {
     const envValue = process.env.JWT_EXPIRES_IN;
     if (envValue) {
-        const parsed = parseInt(envValue, 10);
-        if (!isNaN(parsed)) {
-            return parsed;
-        }
+        return envValue; // Return "7d" or "1h" directly
     }
-    return 7 * 24 * 60 * 60; // Default: 7 days
+    return '7d'; // Default: 7 days
 }
 
 // Register endpoint
@@ -49,8 +48,8 @@ router.post('/register', async (req: Request, res: Response) => {
         const saltRounds = 12;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        // --- Create user (RESTORED THIS QUERY) ---
-        const result = await query( // <--- THIS LINE WAS MISSING/INCOMPLETE BEFORE
+        // --- Create user ---
+        const result = await query(
           `INSERT INTO users (email, username, display_name, user_type, password_hash)
            VALUES ($1, $2, $3, $4, $5)
            RETURNING id, email, username, display_name, user_type, created_at`,
@@ -59,12 +58,14 @@ router.post('/register', async (req: Request, res: Response) => {
 
         // --- Process result ---
         if (result.rows.length === 0) {
-             throw new Error("User creation failed, no rows returned."); // Add check
+             throw new Error("User creation failed, no rows returned.");
         }
-        const user = result.rows[0]; // Now 'result' exists
+        const user = result.rows[0];
         const secret: Secret = process.env.JWT_SECRET || 'your-super-secure-jwt-secret-change-this-in-production-12345';
+        
+        // --- (FIXED) Use new function ---
         const options: SignOptions = {
-            expiresIn: getExpiresInSeconds()
+            expiresIn: getExpiresIn()
         };
 
         const token = jwt.sign(
@@ -76,7 +77,15 @@ router.post('/register', async (req: Request, res: Response) => {
         console.log('User registered successfully:', user.email);
         res.status(201).json({
           message: 'User registered successfully',
-          user: { /* ... user data ... */ },
+          // Return the new user object
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            displayName: user.display_name,
+            userType: user.user_type,
+            onboardingCompleted: false // New user
+          },
           token
         });
 
@@ -100,9 +109,9 @@ router.post('/login', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        // --- Find user (RESTORED THIS QUERY) ---
-        const result = await query( // <--- THIS LINE WAS MISSING/INCOMPLETE BEFORE
-          `SELECT id, email, username, display_name, user_type, password_hash, created_at
+        // --- Find user ---
+        const result = await query(
+          `SELECT id, email, username, display_name, user_type, password_hash, onboarding_completed, created_at 
            FROM users WHERE email = $1`,
           [email]
         );
@@ -111,7 +120,7 @@ router.post('/login', async (req: Request, res: Response) => {
         if (result.rows.length === 0) {
           return res.status(401).json({ error: 'Invalid credentials' });
         }
-        const user = result.rows[0]; // Now 'result' exists
+        const user = result.rows[0];
 
         // --- Check password ---
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
@@ -120,8 +129,10 @@ router.post('/login', async (req: Request, res: Response) => {
         }
 
         const secret: Secret = process.env.JWT_SECRET || 'your-super-secure-jwt-secret-change-this-in-production-12345';
+        
+        // --- (FIXED) Use new function ---
         const options: SignOptions = {
-             expiresIn: getExpiresInSeconds()
+             expiresIn: getExpiresIn()
         };
 
         const token = jwt.sign(
@@ -133,7 +144,20 @@ router.post('/login', async (req: Request, res: Response) => {
         console.log('User logged in successfully:', user.email);
         res.json({
           message: 'Login successful',
-          user: { /* ... user data ... */ },
+          // Return the full user object
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            displayName: user.display_name,
+            userType: user.user_type,
+            avatarUrl: user.avatar_url,
+            bio: user.bio,
+            skills: user.skills || [],
+            interests: user.interests || [],
+            onboardingCompleted: user.onboarding_completed,
+            createdAt: user.created_at
+          },
           token
         });
 
@@ -157,8 +181,8 @@ router.post('/verify', async (req: Request, res: Response) => {
             secret
         ) as { userId: string };
 
-        // --- Verify user exists (COMPLETED THIS QUERY) ---
-        const result = await query( // <--- THIS WAS A PLACEHOLDER BEFORE
+        // --- Verify user exists ---
+        const result = await query(
             'SELECT id, email, username, display_name, user_type, created_at FROM users WHERE id = $1',
             [decoded.userId]
         );
