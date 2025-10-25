@@ -7,13 +7,13 @@ import {
   ForumMessage
 } from '../types';
 
-// Use environment variable for API URL - FIXED for production
+// Use environment variable for API URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://synapse-backend-api.onrender.com/api';
 
 // Internal variable to hold the token, initialized from localStorage
 let authToken: string | null = localStorage.getItem('authToken');
 
-// --- Helper Types (Keep as defined previously) ---
+// --- Helper Types ---
 interface LoginResponse { user: Partial<User>; token: string; message?: string; }
 interface RegisterResponse { user: Partial<User>; token: string; message?: string; error?: string; }
 interface CreateIdeaResponse { idea: Idea; unlockedAchievements: AchievementId[]; }
@@ -47,25 +47,21 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     console.log(`🔄 API Call: ${options.method || 'GET'} ${url}`);
     const response = await fetch(url, { ...options, headers });
     
-    // Handle network errors
     if (response.status === 0) {
       throw new Error('Network error: Cannot connect to server. Check if backend is running.');
     }
 
     const contentType = response.headers.get('content-type');
 
-    // Handle No Content response
     if (response.status === 204 || response.headers.get('content-length') === '0') {
       console.log(`✅ API Success (${response.status} No Content): ${url}`);
       return {} as T;
     }
 
-    // Check for non-OK status
     if (!response.ok) {
         let errorMessage = `API error (${response.status}): ${response.statusText || 'Request Failed'}`;
         let errorDetails: any = { status: response.status };
 
-        // Try to parse JSON error details
         if (contentType && contentType.includes('application/json')) {
             try {
                 const errorData = await response.json();
@@ -81,7 +77,6 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
         console.error(`❌ API Failed (${response.status}): ${url}`, errorMessage, errorDetails || '');
 
-        // Handle Auth errors
         if (response.status === 401 || response.status === 403) {
             console.warn("Authentication error detected. Clearing token and local user.");
             authToken = null;
@@ -95,7 +90,6 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
         throw error;
     }
 
-    // Handle successful JSON response
     if (!contentType || !contentType.includes('application/json')) {
       console.warn(`⚠️ API Warning: Non-JSON response from ${url}. Content-Type: ${contentType}`);
     }
@@ -174,11 +168,20 @@ const api = {
     } else if (!authToken) {
         return Promise.resolve({ valid: false });
     }
+    // This now correctly calls GET /auth/verify
     return apiRequest<VerifyTokenResponse>('/auth/verify', { method: 'GET', headers });
   },
 
   // --- Users ---
-  getUserById: (userId: string): Promise<User> => apiRequest<User>(`/users/${userId}`),
+  // --- (FIXED) Added a safety check to prevent calls with undefined ---
+  getUserById: (userId: string): Promise<User | null> => {
+    if (!userId || userId === 'undefined') {
+      console.warn(`getUserById called with invalid ID: ${userId}, skipping fetch.`);
+      return Promise.resolve(null); // Return null immediately
+    }
+    return apiRequest<User>(`/users/${userId}`);
+  },
+  
   updateUser: (userData: Partial<User>): Promise<User> =>
     apiRequest<User>(`/users/me`, { method: 'PUT', body: JSON.stringify(userData) }),
   markOnboardingComplete: (): Promise<User> =>
