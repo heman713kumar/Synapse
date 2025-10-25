@@ -6,7 +6,6 @@ import { query } from '../db/database.js';
 const router: Router = express.Router();
 
 // --- GET CURRENT USER ---
-// This route must be BEFORE '/:id'
 router.get('/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
@@ -20,8 +19,9 @@ router.get('/me', authenticateToken, async (req: Request, res: Response, next: N
     }
 
     const user = result.rows[0];
+    // --- (FIXED) Map to frontend User type ---
     res.json({
-      id: user.id,
+      userId: user.id,
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -41,13 +41,11 @@ router.get('/me', authenticateToken, async (req: Request, res: Response, next: N
 });
 
 // --- UPDATE CURRENT USER ---
-// This route must be BEFORE '/:id'
 router.put('/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const { skills, interests, bio, displayName, avatarUrl, onboardingCompleted, userType } = req.body;
 
-    // Build dynamic update query
     const updateFields: string[] = [];
     const values: any[] = [];
     let paramCount = 0;
@@ -55,7 +53,7 @@ router.put('/me', authenticateToken, async (req: Request, res: Response, next: N
     if (skills !== undefined) {
       paramCount++;
       updateFields.push(`skills = $${paramCount}`);
-      values.push(Array.isArray(skills) ? skills : []);
+      values.push(Array.isArray(skills) ? JSON.stringify(skills) : '[]'); // Ensure JSONB format
     }
     if (interests !== undefined) {
       paramCount++;
@@ -107,8 +105,9 @@ router.put('/me', authenticateToken, async (req: Request, res: Response, next: N
     }
 
     const user = result.rows[0];
+    // --- (FIXED) Map to frontend User type ---
     res.json({
-      id: user.id,
+      userId: user.id,
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -129,8 +128,7 @@ router.put('/me', authenticateToken, async (req: Request, res: Response, next: N
   }
 });
 
-// --- (NEW) GET CURRENT USER NOTIFICATIONS ---
-// This route must be BEFORE '/:id'
+// --- GET CURRENT USER NOTIFICATIONS ---
 router.get('/me/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
@@ -138,7 +136,6 @@ router.get('/me/notifications', authenticateToken, async (req: Request, res: Res
       'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
       [userId]
     );
-    // Return rows (which will be an empty array, but that's OK)
     res.json(result.rows);
   } catch (error) {
     console.error('Get /me/notifications error:', error);
@@ -147,8 +144,7 @@ router.get('/me/notifications', authenticateToken, async (req: Request, res: Res
   }
 });
 
-// --- (NEW) MARK ALL NOTIFICATIONS AS READ ---
-// This route must be BEFORE '/:id'
+// --- MARK ALL NOTIFICATIONS AS READ ---
 router.post('/me/notifications/read-all', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = req.user!.userId;
@@ -164,20 +160,32 @@ router.post('/me/notifications/read-all', authenticateToken, async (req: Request
     }
 });
 
-// --- (NEW) UPDATE NOTIFICATION SETTINGS ---
-// This route must be BEFORE '/:id'
+// --- UPDATE NOTIFICATION SETTINGS ---
 router.put('/me/settings/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // This is a placeholder. To implement this, you would add
-        // a 'notification_settings' (jsonb) column to your 'users' table.
         console.warn('Notification settings update not fully implemented. Add column to users table.');
-        // For now, just return the user
         const userId = req.user!.userId;
         const result = await query('SELECT * FROM users WHERE id = $1', [userId]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-        res.json(result.rows[0]);
+        
+        const user = result.rows[0];
+        // --- (FIXED) Map to frontend User type ---
+        res.json({
+            userId: user.id,
+            email: user.email,
+            username: user.username,
+            displayName: user.display_name,
+            avatarUrl: user.avatar_url,
+            bio: user.bio,
+            userType: user.user_type,
+            skills: user.skills || [],
+            interests: user.interests || [],
+            onboardingCompleted: user.onboarding_completed,
+            createdAt: user.created_at,
+            updatedAt: user.updated_at
+        });
     } catch (error) {
         console.error('Put /me/settings/notifications error:', error);
         const errMsg = error instanceof Error ? error.message : 'Internal server error';
@@ -191,7 +199,6 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     
-    // Check if ID is a valid UUID to prevent this route from catching /me
     const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
     if (!uuidRegex.test(id)) {
         return res.status(400).json({ error: 'Invalid user ID format' });
@@ -207,8 +214,9 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const user = result.rows[0];
+    // --- (FIXED) Map to frontend User type ---
     res.json({
-      id: user.id,
+      userId: user.id,
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -232,17 +240,15 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response, next: 
   try {
     const { id } = req.params;
 
-    // Check if user is updating their own profile
     if (req.user!.userId !== id) {
       return res.status(403).json({ error: 'Cannot update other user profiles' });
     }
 
-    // (This code is now duplicated in PUT /me, but we'll leave it for now)
     const { skills, interests, bio, displayName, avatarUrl, onboardingCompleted } = req.body;
     const updateFields: string[] = [];
     const values: any[] = [];
     let paramCount = 0;
-    if (skills !== undefined) { paramCount++; updateFields.push(`skills = $${paramCount}`); values.push(Array.isArray(skills) ? skills : []); }
+    if (skills !== undefined) { paramCount++; updateFields.push(`skills = $${paramCount}`); values.push(Array.isArray(skills) ? JSON.stringify(skills) : '[]'); }
     if (interests !== undefined) { paramCount++; updateFields.push(`interests = $${paramCount}`); values.push(Array.isArray(interests) ? interests : []); }
     if (bio !== undefined) { paramCount++; updateFields.push(`bio = $${paramCount}`); values.push(bio); }
     if (displayName !== undefined) { paramCount++; updateFields.push(`display_name = $${paramCount}`); values.push(displayName); }
@@ -257,8 +263,9 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response, next: 
 
     if (result.rows.length === 0) { return res.status(404).json({ error: 'User not found' }); }
     const user = result.rows[0];
+    // --- (FIXED) Map to frontend User type ---
     res.json({
-      id: user.id,
+      userId: user.id,
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -284,7 +291,6 @@ router.patch('/:id/onboarding', authenticateToken, async (req: Request, res: Res
   try {
     const { id } = req.params;
 
-    // Check if user is updating their own profile
     if (req.user!.userId !== id) {
       return res.status(403).json({ error: 'Cannot update other user profiles' });
     }
@@ -299,8 +305,9 @@ router.patch('/:id/onboarding', authenticateToken, async (req: Request, res: Res
     }
 
     const user = result.rows[0];
+    // --- (FIXED) Map to frontend User type ---
     res.json({
-      id: user.id,
+      userId: user.id,
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -331,13 +338,16 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     if (skills) {
       const skillsArray = Array.isArray(skills) ? skills : [skills];
       paramCount++;
-      queryText += ` AND skills && $${paramCount}`; // Assumes skills is a text array
-      params.push(skillsArray);
+      queryText += ` AND skills @> $${paramCount}`; // Use JSONB contains operator
+      params.push(JSON.stringify(skillsArray.map(s => ({ skillName: s })))); // Assumes format [{"skillName": "react"}]
     }
     queryText += ' ORDER BY created_at DESC LIMIT 50';
+    
     const result = await query(queryText, params);
+    
+    // --- (FIXED) Map to frontend User type ---
     const users = result.rows.map((user: any) => ({
-      id: user.id,
+      userId: user.id,
       username: user.username,
       displayName: user.display_name,
       avatarUrl: user.avatar_url,

@@ -3,7 +3,7 @@ import express, { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import { query } from '../db/database.js';
-import { authenticateToken } from '../middleware/auth.middleware.js'; // <-- ADD THIS IMPORT
+import { authenticateToken } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -82,7 +82,7 @@ router.post('/register', async (req: Request, res: Response) => {
         res.status(201).json({
           message: 'User registered successfully',
           user: {
-            id: user.id,
+            userId: user.id, // <-- (FIXED)
             email: user.email,
             username: user.username,
             displayName: user.display_name,
@@ -141,7 +141,7 @@ router.post('/login', async (req: Request, res: Response) => {
         res.json({
           message: 'Login successful',
           user: {
-            id: user.id,
+            userId: user.id, // <-- (FIXED)
             email: user.email,
             username: user.username,
             displayName: user.display_name,
@@ -163,12 +163,9 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 });
 
-// --- (FIXED) Verify token endpoint ---
-// Changed from POST to GET and using authenticateToken middleware
+// Verify token endpoint
 router.get('/verify', authenticateToken, async (req: Request, res: Response) => {
     try {
-        // authenticateToken has already run and verified the token.
-        // It placed the user payload in req.user.
         const userId = req.user!.userId;
 
         const result = await query(
@@ -184,7 +181,7 @@ router.get('/verify', authenticateToken, async (req: Request, res: Response) => 
         res.json({
             valid: true,
             user: {
-                id: user.id,
+                userId: user.id, // <-- (FIXED)
                 email: user.email,
                 username: user.username,
                 displayName: user.display_name,
