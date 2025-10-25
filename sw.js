@@ -1,6 +1,6 @@
 // sw.js
 
-const CACHE_NAME = 'synapse-cache-v15'; // Incremented cache version again
+const CACHE_NAME = 'synapse-cache-v16'; // Incremented cache version again
 
 // Using absolute paths to match the deployment sub-path.
 // Ensure index.html and manifest.json are included for the app shell.
