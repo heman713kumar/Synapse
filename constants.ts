@@ -26,14 +26,12 @@ export const SECTORS = [
 ];
 
 export const REGIONS = [
-    // Continents
     "North America", 
     "Europe", 
     "Asia", 
     "South America", 
     "Africa", 
     "Australia",
-    // Top 20 Countries by GDP (mix)
     "United States",
     "China",
     "Germany",
@@ -57,7 +55,6 @@ export const REGIONS = [
 ];
 
 export const SKILLS = [
-    // Technical
     "Software Development",
     "Data Science",
     "AI/ML", 
@@ -66,7 +63,6 @@ export const SKILLS = [
     "Mobile Development (iOS/Android)",
     "Blockchain",
     "Cloud Computing (AWS/Azure/GCP)",
-    // Marketing & Sales
     "Marketing",
     "SEO/SEM",
     "Content Creation",
@@ -74,13 +70,11 @@ export const SKILLS = [
     "Digital Advertising",
     "Public Relations",
     "Sales",
-    // Design
     "Design",
     "UI/UX Design",
     "Graphic Design",
     "Industrial Design",
     "Animation",
-    // Business & Operations
     "Business",
     "Finance & Accounting",
     "Product Management",
@@ -88,7 +82,6 @@ export const SKILLS = [
     "Fundraising",
     "Operations",
     "Legal",
-    // Creative & Other
     "Writing",
     "Scientific Research",
     "Engineering (Mechanical/Electrical)",

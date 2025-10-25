@@ -1,15 +1,13 @@
-
-
 export type Page = 'login' | 'feed' | 'profile' | 'ideaDetail' | 'newIdea' | 'ideaBoard' | 'connections' | 'bookmarks' | 'inbox' | 'chat' | 'forum' | 'explore' | 'notifications' | 'privacyPolicy' | 'analytics' | 'onboarding' | 'notificationSettings' | 'kanban';
 
-// --- NEW TYPES ---
+// --- CORE TYPES ---
 export interface Milestone {
     id: string;
     title: string;
     description: string;
-    targetDate: string; // ISO date string
+    targetDate: string;
     status: 'pending' | 'completed';
-    completedAt?: string; // ISO date string
+    completedAt?: string;
 }
 
 export interface MilestonePost {
@@ -21,7 +19,7 @@ export interface MilestonePost {
 
 export interface SkillEndorsement {
     skillName: string;
-    endorsers: string[]; // array of userIds
+    endorsers: string[];
 }
 
 export type KanbanColumnId = 'todo' | 'in-progress' | 'done';
@@ -30,7 +28,7 @@ export interface KanbanTask {
     id: string;
     title: string;
     description: string;
-    assignedTo?: string[]; // array of userIds
+    assignedTo?: string[];
 }
 
 export interface KanbanColumn {
@@ -45,30 +43,33 @@ export interface KanbanBoard {
     columnOrder: KanbanColumnId[];
 }
 
-
-// --- UPDATED TYPES ---
+// --- USER & AUTH TYPES ---
 export interface User {
   userId: string;
+  id?: string; // Added for Login.tsx compatibility
   name: string;
   email: string;
   avatarUrl: string;
   bio: string;
   skills: SkillEndorsement[];
   interests: string[];
-  connections: string[]; // array of userIds
-  bookmarkedIdeas: string[]; // array of ideaIds
+  connections: string[];
+  bookmarkedIdeas: string[];
   achievements: UserAchievement[];
   linkedInUrl?: string;
   portfolioUrl?: string;
   onboardingCompleted?: boolean;
   notificationSettings: NotificationSettings;
+  createdAt?: string; // Added for backend compatibility
 }
 
+// --- IDEA TYPES ---
 export interface Idea {
   ideaId: string;
-  ownerId: string; // userId
+  ownerId: string;
   title: string;
   summary: string;
+  description?: string; // Added for backward compatibility
   tags: string[];
   sector: string;
   region: string;
@@ -77,46 +78,33 @@ export interface Idea {
   ideaBoard: IdeaBoard;
   status: 'active' | 'archived' | 'in-development';
   progressStage: ProgressStage;
-  createdAt: string; // ISO date string
-  likesCount: number; // Retaining for simple feed display
+  createdAt: string;
+  likesCount: number;
   commentsCount: number;
-  collaborators: string[]; // array of userIds
-  forumMembers: string[]; // array of userIds
-  blockchainHash?: string; // Initial hash for backwards compatibility/simple display
-  blockchainTimestamp?: string; // Initial timestamp
+  collaborators: string[];
+  forumMembers: string[];
+  blockchainHash?: string;
+  blockchainTimestamp?: string;
   votes: Vote[];
   isUnderReview?: boolean;
   roadmap: Milestone[];
   kanbanBoard?: KanbanBoard;
+  updatedAt?: string; // Added for backward compatibility
 }
 
 export type FeedItem = 
     | { type: 'idea'; data: Idea }
     | { type: 'achievement'; data: AchievementPost }
     | { type: 'milestone'; data: MilestonePost };
-    
-// --- EXISTING TYPES ---
-export interface RecommendedCollaborator extends User {
-    matchScore: number;
-    reason: string;
-}
 
-export interface NodeComment {
-  commentId: string;
-  ideaId: string;
-  nodeId: string;
-  userId: string;
-  text: string;
-  createdAt: string;
-}
-
+// --- IDEA BOARD TYPES ---
 export interface IdeaNode {
   id: string;
   x: number;
   y: number;
   title: string;
   description: string;
-  connections: string[]; // array of nodeIds
+  connections: string[];
 }
 
 export interface IdeaBoard {
@@ -148,17 +136,112 @@ export interface Vote {
   type: 'up' | 'down';
 }
 
+// --- COLLABORATION TYPES ---
+export interface RecommendedCollaborator extends User {
+    matchScore: number;
+    reason: string;
+}
+
+export interface CollaborationRequest {
+  requestId: string;
+  ideaId: string;
+  requesterId: string;
+  skills: string;
+  contribution: string;
+  motivation: string;
+  status: 'pending' | 'approved' | 'denied';
+  createdAt: string;
+}
+
+// --- COMMENT & FEEDBACK TYPES ---
+export interface Comment {
+    commentId: string;
+    ideaId: string;
+    userId: string;
+    text: string;
+    createdAt: string;
+    isUnderReview?: boolean;
+}
+
+export interface NodeComment {
+  commentId: string;
+  ideaId: string;
+  nodeId: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface Feedback {
+  feedbackId: string;
+  ideaId: string;
+  userId: string;
+  ratings: {
+    problemClarity: number;
+    solutionViability: number;
+    marketPotential: number;
+  };
+  comment: string;
+  createdAt: string;
+}
+
+// --- MESSAGING TYPES ---
+export interface Reaction {
+    userId: string;
+    emoji: string;
+}
+
+export interface Message {
+  messageId: string;
+  conversationId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  isRead: boolean;
+  reactions?: Reaction[];
+  replyToMessageId?: string;
+  media?: {
+      url: string;
+      type: 'image' | 'file';
+      fileName: string;
+  };
+}
+
+export interface Conversation {
+  conversationId: string;
+  participants: string[];
+  lastMessage: Message;
+  lastUpdatedAt: string;
+  unreadCount: { [userId: string]: number };
+  isGroup?: boolean;
+  groupName?: string;
+  groupAvatar?: string;
+  admins?: string[];
+  status?: 'pending' | 'accepted' | 'blocked';
+}
+
+export interface ForumMessage {
+  messageId: string;
+  ideaId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  isPinned?: boolean;
+}
+
+// --- ANALYTICS TYPES ---
 export interface IdeaAnalytics {
   totalViews: number;
   uniqueVisitors: number;
-  engagementRate: number; // (likes + comments + feedback) / views
-  collaborationConversionRate: number; // approved requests / total requests
+  engagementRate: number;
+  collaborationConversionRate: number;
   viewsOverTime: { date: string; views: number }[];
   geography: { region: string; views: number }[];
   trafficSources: { source: string; visits: number }[];
   collaboratorSkillDemographics: { skill: string; count: number }[];
 }
 
+// --- NOTIFICATION TYPES ---
 export type NotificationType = 
     | 'COLLABORATION_REQUEST' 
     | 'COLLABORATION_APPROVED'
@@ -172,7 +255,7 @@ export type NotificationType =
     | 'COLLABORATION_RECORDED'
     | 'NEW_MESSAGE'
     | 'MESSAGE_REQUEST'
-    | 'MILESTONE_COMPLETED'; // New Notification Type
+    | 'MILESTONE_COMPLETED';
 
 export interface Notification {
   id: string;
@@ -180,111 +263,12 @@ export interface Notification {
   type: NotificationType;
   message: string;
   read: boolean;
-  createdAt: string; // ISO date string
+  createdAt: string;
   link: {
       page: Page;
       id: string;
   };
 }
-
-export interface Comment {
-    commentId: string;
-    ideaId: string;
-    userId: string;
-    text: string;
-    createdAt: string;
-    isUnderReview?: boolean;
-}
-
-export interface Feedback {
-  feedbackId: string;
-  ideaId: string;
-  userId: string;
-  ratings: {
-    problemClarity: number; // 1-5
-    solutionViability: number; // 1-5
-    marketPotential: number; // 1-5
-  };
-  comment: string;
-  createdAt: string;
-}
-
-export interface Reaction {
-    userId: string;
-    emoji: string;
-}
-
-export interface Message {
-  messageId: string;
-  conversationId: string;
-  senderId: string;
-  text: string;
-  createdAt: string; // ISO date string
-  isRead: boolean;
-  reactions?: Reaction[];
-  replyToMessageId?: string;
-  media?: {
-      url: string;
-      type: 'image' | 'file';
-      fileName: string;
-  };
-}
-
-export interface Conversation {
-  conversationId: string;
-  participants: string[]; // array of userIds
-  lastMessage: Message;
-  lastUpdatedAt: string; // ISO date string
-  unreadCount: { [userId: string]: number };
-  isGroup?: boolean;
-  groupName?: string;
-  groupAvatar?: string;
-  admins?: string[];
-  status?: 'pending' | 'accepted' | 'blocked';
-}
-
-export interface CollaborationRequest {
-  requestId: string;
-  ideaId: string;
-  requesterId: string;
-  skills: string;
-  contribution: string;
-  motivation: string;
-  status: 'pending' | 'approved' | 'denied';
-  createdAt: string; // ISO date string
-}
-
-export interface ForumMessage {
-  messageId: string;
-  ideaId: string;
-  senderId: string;
-  text: string;
-  createdAt: string; // ISO date string
-  isPinned?: boolean;
-}
-
-export interface BlockchainRecord {
-  recordId: string;
-  ideaId: string;
-  transactionHash: string;
-  blockchainNetwork: string; // e.g., "Polygon"
-  timestamp: string; // ISO date string
-  recordType: "timestamp" | "collaboration" | "ownership";
-  collaboratorId?: string; // For 'collaboration' type
-}
-
-export interface Report {
-  reportId: string;
-  contentType: 'idea' | 'comment' | 'user';
-  contentId: string;
-  reporterId: string;
-  reason: keyof typeof import('./constants').REPORT_REASONS;
-  details: string;
-  status: 'pending' | 'reviewed';
-  createdAt: string;
-}
-
-// --- NOTIFICATION SETTINGS TYPES ---
 
 export type NotificationChannel = 'inApp' | 'email';
 
@@ -299,14 +283,34 @@ export interface NotificationSettings {
     messageReactions: NotificationChannel[];
     doNotDisturb: {
         enabled: boolean;
-        startTime: string; // "HH:mm" format
-        endTime: string; // "HH:mm" format
+        startTime: string;
+        endTime: string;
     };
 }
 
+// --- BLOCKCHAIN & REPORTING TYPES ---
+export interface BlockchainRecord {
+  recordId: string;
+  ideaId: string;
+  transactionHash: string;
+  blockchainNetwork: string;
+  timestamp: string;
+  recordType: "timestamp" | "collaboration" | "ownership";
+  collaboratorId?: string;
+}
+
+export interface Report {
+  reportId: string;
+  contentType: 'idea' | 'comment' | 'user';
+  contentId: string;
+  reporterId: string;
+  reason: string; // Simplified to avoid import issues
+  details: string;
+  status: 'pending' | 'reviewed';
+  createdAt: string;
+}
 
 // --- GAMIFICATION TYPES ---
-
 export type AchievementId = 'first_thought' | 'serial_innovator' | 'team_player' | 'super_collaborator' | 'valued_critic' | 'community_pillar';
 
 export interface Achievement {
@@ -331,7 +335,6 @@ export interface AchievementPost {
 }
 
 // --- IDEA TEMPLATE TYPES ---
-
 export interface IdeaTemplate {
   id: 'startup' | 'research' | 'creative' | 'impact';
   name: string;
@@ -345,4 +348,16 @@ export interface IdeaTemplate {
     skillsLooking: string;
     visionForSuccess: string;
   };
+}
+
+// --- COMPONENT PROP TYPES ---
+export interface IdeaCardProps {
+    idea: Idea;
+    setPage: (page: Page, id?: string) => void;
+}
+
+export interface NewIdeaFormProps {
+    setPage: (page: Page, id?: string) => void;
+    setSelectedIdeaId: (id: string | null) => void;
+    onAchievementsUnlock: (achievementIds: AchievementId[]) => void;
 }

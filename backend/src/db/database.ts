@@ -7,10 +7,23 @@ const { Pool } = pg;
 dotenv.config();
 
 // Parse the connection string
-const dbUrl = process.env.DATABASE_URL;
+const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:Mahadev@shiva6563@db.fsgcdhshhsbmodspyggn.supabase.co:5432/postgres';
 
-if (!dbUrl) {
-    console.warn("⚠️ DATABASE_URL environment variable is not set!");
+console.log('🔧 Database Configuration:');
+console.log('DATABASE_URL exists:', !!dbUrl);
+
+// Hide password in logs for security
+const safeUrl = dbUrl.replace(/:[^:]*@/, ':****@');
+console.log('Database URL:', safeUrl);
+
+try {
+    const dbConfig = parse(dbUrl);
+    console.log('Database Host:', dbConfig.host);
+    console.log('Database Port:', dbConfig.port);
+    console.log('Database Name:', dbConfig.database);
+    console.log('Database User:', dbConfig.user);
+} catch (error) {
+    console.error('❌ Failed to parse DATABASE_URL:', error);
 }
 
 let poolConfig: any = {
@@ -19,27 +32,23 @@ let poolConfig: any = {
     connectionTimeoutMillis: 10000,
 };
 
-if (dbUrl) {
-    try {
-        const dbConfig = parse(dbUrl);
-        
-        poolConfig = {
-            ...poolConfig,
-            user: dbConfig.user,
-            password: dbConfig.password,
-            host: dbConfig.host || 'localhost',
-            port: dbConfig.port ? parseInt(dbConfig.port, 10) : 5432,
-            database: dbConfig.database || '',
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-        };
+try {
+    const dbConfig = parse(dbUrl);
+    
+    poolConfig = {
+        ...poolConfig,
+        user: dbConfig.user,
+        password: dbConfig.password,
+        host: dbConfig.host || 'localhost',
+        port: dbConfig.port ? parseInt(dbConfig.port, 10) : 5432,
+        database: dbConfig.database || 'postgres',
+        ssl: { rejectUnauthorized: false }, // Supabase requires SSL
+    };
 
-        console.log(`🔗 Database config: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
-        
-    } catch (parseError) {
-        console.error('❌ Failed to parse DATABASE_URL:', parseError);
-    }
-} else {
-    console.log('🚫 Running without database - DATABASE_URL not set');
+    console.log(`🔗 Final Database Config - Host: ${poolConfig.host}, Port: ${poolConfig.port}`);
+    
+} catch (parseError) {
+    console.error('❌ Failed to parse DATABASE_URL:', parseError);
 }
 
 // Export the pool instance
@@ -47,13 +56,9 @@ export const pool = new Pool(poolConfig);
 
 // Export the testConnection function
 export const testConnection = async (): Promise<boolean> => {
-  if (!dbUrl) {
-    console.log('⚠️ No DATABASE_URL set, skipping database connection');
-    return false;
-  }
-  
   let client;
   try {
+    console.log('🔄 Attempting database connection...');
     client = await pool.connect();
     console.log('✅ Database connected successfully');
     
@@ -64,15 +69,9 @@ export const testConnection = async (): Promise<boolean> => {
     return true;
   } catch (error: any) {
     console.error('❌ Database connection failed:', error.message);
-    
-    // More specific error handling
-    if (error.code === 'ENETUNREACH') {
-        console.error('🌐 Network unreachable - check database host/port');
-    } else if (error.code === 'ECONNREFUSED') {
-        console.error('🚫 Connection refused - database may not be running');
-    } else if (error.code === 'ETIMEDOUT') {
-        console.error('⏰ Connection timeout - check network/firewall');
-    }
+    console.error('Error code:', error.code);
+    console.error('Error address:', error.address);
+    console.error('Error port:', error.port);
     
     return false;
   } finally {
@@ -82,12 +81,8 @@ export const testConnection = async (): Promise<boolean> => {
   }
 };
 
-// Export the query function with better error handling
+// Export the query function
 export const query = async (text: string, params?: any[]) => {
-  if (!dbUrl) {
-    throw new Error('Database not configured - DATABASE_URL environment variable is required');
-  }
-  
   let client;
   try {
     client = await pool.connect();
