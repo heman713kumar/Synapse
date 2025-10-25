@@ -5,7 +5,7 @@ import { query } from '../db/database.js';
 
 const router: Router = express.Router();
 
-// --- (NEW) GET CURRENT USER ---
+// --- GET CURRENT USER ---
 // This route must be BEFORE '/:id'
 router.get('/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -40,7 +40,7 @@ router.get('/me', authenticateToken, async (req: Request, res: Response, next: N
   }
 });
 
-// --- (NEW) UPDATE CURRENT USER ---
+// --- UPDATE CURRENT USER ---
 // This route must be BEFORE '/:id'
 router.put('/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -127,6 +127,62 @@ router.put('/me', authenticateToken, async (req: Request, res: Response, next: N
     const errMsg = error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ error: errMsg });
   }
+});
+
+// --- (NEW) GET CURRENT USER NOTIFICATIONS ---
+// This route must be BEFORE '/:id'
+router.get('/me/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const result = await query(
+      'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
+      [userId]
+    );
+    // Return rows (which will be an empty array, but that's OK)
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get /me/notifications error:', error);
+    const errMsg = error instanceof Error ? error.message : 'Internal server error';
+    res.status(500).json({ error: errMsg });
+  }
+});
+
+// --- (NEW) MARK ALL NOTIFICATIONS AS READ ---
+// This route must be BEFORE '/:id'
+router.post('/me/notifications/read-all', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = req.user!.userId;
+        await query(
+            'UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false',
+            [userId]
+        );
+        res.status(200).json({ message: 'All notifications marked as read' });
+    } catch (error) {
+        console.error('Post /me/notifications/read-all error:', error);
+        const errMsg = error instanceof Error ? error.message : 'Internal server error';
+        res.status(500).json({ error: errMsg });
+    }
+});
+
+// --- (NEW) UPDATE NOTIFICATION SETTINGS ---
+// This route must be BEFORE '/:id'
+router.put('/me/settings/notifications', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        // This is a placeholder. To implement this, you would add
+        // a 'notification_settings' (jsonb) column to your 'users' table.
+        console.warn('Notification settings update not fully implemented. Add column to users table.');
+        // For now, just return the user
+        const userId = req.user!.userId;
+        const result = await query('SELECT * FROM users WHERE id = $1', [userId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Put /me/settings/notifications error:', error);
+        const errMsg = error instanceof Error ? error.message : 'Internal server error';
+        res.status(500).json({ error: errMsg });
+    }
 });
 
 
