@@ -19,9 +19,8 @@ router.get('/me', authenticateToken, async (req: Request, res: Response, next: N
     }
 
     const user = result.rows[0];
-    // --- (FIXED) Map to frontend User type ---
     res.json({
-      userId: user.id,
+      userId: user.id, // Corrected
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -53,12 +52,13 @@ router.put('/me', authenticateToken, async (req: Request, res: Response, next: N
     if (skills !== undefined) {
       paramCount++;
       updateFields.push(`skills = $${paramCount}`);
-      values.push(Array.isArray(skills) ? JSON.stringify(skills) : '[]'); // Ensure JSONB format
+      // Ensure skills are stringified if they are objects for JSONB
+      values.push(Array.isArray(skills) ? JSON.stringify(skills) : '[]');
     }
     if (interests !== undefined) {
       paramCount++;
       updateFields.push(`interests = $${paramCount}`);
-      values.push(Array.isArray(interests) ? interests : []);
+      values.push(Array.isArray(interests) ? interests : []); // Assuming interests is text[]
     }
     if (bio !== undefined) {
       paramCount++;
@@ -105,9 +105,8 @@ router.put('/me', authenticateToken, async (req: Request, res: Response, next: N
     }
 
     const user = result.rows[0];
-    // --- (FIXED) Map to frontend User type ---
     res.json({
-      userId: user.id,
+      userId: user.id, // Corrected
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -169,11 +168,10 @@ router.put('/me/settings/notifications', authenticateToken, async (req: Request,
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-        
         const user = result.rows[0];
-        // --- (FIXED) Map to frontend User type ---
         res.json({
-            userId: user.id,
+            userId: user.id, // Corrected
+            // ... rest of user properties
             email: user.email,
             username: user.username,
             displayName: user.display_name,
@@ -214,9 +212,8 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
     }
 
     const user = result.rows[0];
-    // --- (FIXED) Map to frontend User type ---
     res.json({
-      userId: user.id,
+      userId: user.id, // Corrected
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -263,10 +260,10 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response, next: 
 
     if (result.rows.length === 0) { return res.status(404).json({ error: 'User not found' }); }
     const user = result.rows[0];
-    // --- (FIXED) Map to frontend User type ---
     res.json({
-      userId: user.id,
-      email: user.email,
+      userId: user.id, // Corrected
+      // ... rest of user properties
+       email: user.email,
       username: user.username,
       displayName: user.display_name,
       avatarUrl: user.avatar_url,
@@ -305,9 +302,9 @@ router.patch('/:id/onboarding', authenticateToken, async (req: Request, res: Res
     }
 
     const user = result.rows[0];
-    // --- (FIXED) Map to frontend User type ---
     res.json({
-      userId: user.id,
+      userId: user.id, // Corrected
+      // ... rest of user properties
       email: user.email,
       username: user.username,
       displayName: user.display_name,
@@ -327,8 +324,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { search, userType, skills } = req.query;
     let queryText = `
-      SELECT id, username, display_name, avatar_url, bio, user_type, skills, interests, created_at 
-      FROM users 
+      SELECT id, username, display_name, avatar_url, bio, user_type, skills, interests, created_at
+      FROM users
       WHERE 1=1
     `;
     const params: any[] = [];
@@ -337,17 +334,21 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     if (userType) { paramCount++; queryText += ` AND user_type = $${paramCount}`; params.push(userType); }
     if (skills) {
       const skillsArray = Array.isArray(skills) ? skills : [skills];
-      paramCount++;
-      queryText += ` AND skills @> $${paramCount}`; // Use JSONB contains operator
-      params.push(JSON.stringify(skillsArray.map(s => ({ skillName: s })))); // Assumes format [{"skillName": "react"}]
+      if (skillsArray.length > 0) {
+          paramCount++;
+          // Assuming skills is JSONB: '[{"skillName": "react"}, ...]'
+          // We need to construct a JSONB array to check for containment
+          const skillsJsonb = JSON.stringify(skillsArray.map(s => ({ skillName: s })));
+          queryText += ` AND skills @> $${paramCount}`;
+          params.push(skillsJsonb);
+      }
     }
     queryText += ' ORDER BY created_at DESC LIMIT 50';
-    
+
     const result = await query(queryText, params);
-    
-    // --- (FIXED) Map to frontend User type ---
+
     const users = result.rows.map((user: any) => ({
-      userId: user.id,
+      userId: user.id, // Corrected
       username: user.username,
       displayName: user.display_name,
       avatarUrl: user.avatar_url,
@@ -364,5 +365,39 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     res.status(500).json({ error: errMsg });
   }
 });
+
+// --- (NEW) GET USER ACHIEVEMENTS ---
+router.get('/:id/achievements', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params; // The ID of the user whose achievements we want
+
+        // Validate ID format
+        const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+        if (!uuidRegex.test(id)) {
+            return res.status(400).json({ error: 'Invalid user ID format' });
+        }
+
+        const result = await query(
+            'SELECT * FROM user_achievements WHERE user_id = $1 ORDER BY unlocked_at DESC',
+            [id]
+        );
+
+        // Map database result to frontend expected format
+        const achievements = result.rows.map((ach: any) => ({
+            id: ach.id, // You might want to use achievement_id here depending on frontend
+            userId: ach.user_id,
+            achievementId: ach.achievement_id, // The type/name of the achievement
+            unlockedAt: ach.unlocked_at
+        }));
+
+        res.json(achievements); // Send back the list (will be empty if none unlocked)
+
+    } catch (error) {
+        console.error(`Get user achievements error for user ${req.params.id}:`, error);
+        const errMsg = error instanceof Error ? error.message : 'Internal server error';
+        res.status(500).json({ error: errMsg });
+    }
+});
+
 
 export default router;
