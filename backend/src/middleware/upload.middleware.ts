@@ -1,8 +1,12 @@
-// C:\Users\hemant\Downloads\synapse\backend\src\middleware\upload.middleware.ts
-import multer, { FileFilterCallback } from 'multer'; // Import FileFilterCallback
+import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import { Request } from 'express';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// ES modules equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 type DestinationCallback = (error: Error | null, destination: string) => void;
 type FileNameCallback = (error: Error | null, filename: string) => void;
@@ -24,26 +28,16 @@ const storage = multer.diskStorage({
   }
 });
 
-// FIX: Explicitly type the callback parameter as FileFilterCallback
+// Fixed fileFilter with proper typing
 const fileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
   if (file.mimetype.startsWith('image/') ||
       file.mimetype === 'application/pdf' ||
       file.mimetype === 'application/msword' ||
       file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    cb(null, true); // Accept file
+    cb(null, true);
   } else {
-    // Reject file - pass error as first arg, or null if just rejecting
-    // Passing null might be safer if the error isn't meant to stop multer entirely
-    // cb(null, false);
-    // OR pass the error if you want multer to potentially handle it:
-    cb(new Error('Invalid file type. Only images, PDFs, and Word documents are allowed.'));
-    // NOTE: Passing the error might stop the whole upload process depending on how routes handle it.
-    // Let's stick to rejecting without an error to fix the TS issue for now:
-    // cb(null, false);
-    // Let's try passing the error again, TS might be okay with it now with explicit typing
-     cb(new Error('Invalid file type. Only images, PDFs, and Word documents are allowed.'));
-     // If the above still fails, uncomment the line below and comment the line above
-     // cb(null, false);
+    // For better error handling, reject without stopping the entire upload process
+    cb(null, false);
   }
 };
 
@@ -57,7 +51,6 @@ export const upload = multer({
 
 // Placeholder for Cloudflare R2 upload
 export const handleR2Upload = async (file: Express.Multer.File) => {
-    // ... (implementation remains the same) ...
     console.warn("R2 Upload not fully implemented. Using placeholder URL.");
     const key = file.filename;
     const bucketName = process.env.R2_BUCKET_NAME || 'synapse-files';
