@@ -1,14 +1,13 @@
 // C:\Users\hemant\Downloads\synapse\src\components\Explore.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Idea, User, Page } from '../types';
-// FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
 import { IdeaCard } from './IdeaCard';
-import { LoaderIcon } from './icons'; // Added LoaderIcon
+import { LoaderIcon } from './icons';
 import { SECTORS } from '../constants';
 
 interface ExploreProps {
-    currentUser: User | null; // Allow null for guests
+    currentUser: User | null;
     setPage: (page: Page, id?: string) => void;
 }
 
@@ -26,21 +25,27 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
             setIsLoading(true);
             setError(null);
             try {
-                // Now calls the real API
-                const ideas = await api.getAllIdeas(); 
-                setAllIdeas(ideas);
-                
-                // Mock trending/recommended logic for now, as backend might not support it yet
-                // In a real app, these would be separate API calls (e.g., api.getTrendingIdeas())
-                setTrendingIdeas([...ideas].sort((a, b) => (b.likesCount + b.commentsCount) - (a.likesCount + a.commentsCount)).slice(0, 10));
-                
+                const ideas = await api.getAllIdeas();
+                setAllIdeas(ideas || []); // Ensure ideas is an array
+
+                // --- (FIXED) Added safety checks for counts ---
+                const sortedIdeas = [...(ideas || [])].sort((a, b) =>
+                    ((b.likesCount || 0) + (b.commentsCount || 0)) -
+                    ((a.likesCount || 0) + (a.commentsCount || 0))
+                );
+                setTrendingIdeas(sortedIdeas.slice(0, 10));
+
                 if (currentUser) {
                     const userInterests = new Set(currentUser.interests || []);
-                    const userSkills = new Set(currentUser.skills.map(s => s.skillName) || []);
-                    setRecommendedIdeas([...ideas].filter(idea => 
-                        idea.tags.some(tag => userInterests.has(tag)) ||
-                        idea.requiredSkills.some(skill => userSkills.has(skill))
-                    ).slice(0, 10));
+                    // Ensure skills is an array before mapping
+                    const userSkills = new Set((currentUser.skills || []).map(s => s?.skillName).filter(Boolean));
+                    
+                    // --- (FIXED) Added safety checks for tags and requiredSkills ---
+                    const recommended = [...(ideas || [])].filter(idea =>
+                        (idea.tags || []).some(tag => userInterests.has(tag)) ||
+                        (idea.requiredSkills || []).some(skill => userSkills.has(skill))
+                    ).slice(0, 10);
+                    setRecommendedIdeas(recommended);
                 }
 
             } catch (err: any) {
@@ -52,20 +57,19 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
         };
 
         fetchExploreData();
-    }, [currentUser]); // Re-fetch if user logs in/out
+    }, [currentUser]);
 
-    // Group ideas by sector
     const ideasBySector = useMemo(() => {
         const grouped: Record<string, Idea[]> = {};
         const ideasToFilter = searchQuery
-            ? allIdeas.filter(idea => 
-                idea.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                idea.summary.toLowerCase().includes(searchQuery.toLowerCase())
+            ? (allIdeas || []).filter(idea =>
+                (idea?.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (idea?.summary || '').toLowerCase().includes(searchQuery.toLowerCase())
               )
-            : allIdeas;
-            
+            : (allIdeas || []);
+
         for (const sector of SECTORS) {
-            grouped[sector] = ideasToFilter.filter(idea => idea.sector === sector);
+            grouped[sector] = ideasToFilter.filter(idea => idea?.sector === sector);
         }
         return grouped;
     }, [allIdeas, searchQuery]);
@@ -80,6 +84,15 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
 
         switch (activeTab) {
             case 'sectors':
+                // Check if any sector has ideas after filtering
+                 const hasIdeasInSectors = SECTORS.some(sector => ideasBySector[sector]?.length > 0);
+                 if (!hasIdeasInSectors && searchQuery) {
+                     return <p className="text-gray-400 text-center">No ideas found matching your search.</p>;
+                 }
+                 if (!hasIdeasInSectors) {
+                     return <p className="text-gray-400 text-center">No ideas found in any sector yet.</p>;
+                 }
+
                 return (
                     <div className="space-y-10">
                         {SECTORS.map(sector => {
@@ -91,7 +104,7 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
                                     <h2 className="text-2xl font-bold text-white mb-4 border-l-4 border-indigo-500 pl-3">{sector}</h2>
                                     <div className="flex overflow-x-auto space-x-6 pb-4 -mx-4 px-4 scrollbar-thin">
                                         {ideas.map(idea => (
-                                            <div key={idea.ideaId} className="w-80 flex-shrink-0">
+                                            <div key={idea.ideaId || idea.id} className="w-80 flex-shrink-0"> {/* Use idea.id as fallback */}
                                                 <IdeaCard idea={idea} setPage={setPage} />
                                             </div>
                                         ))}
@@ -101,22 +114,27 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
                         })}
                     </div>
                 );
-            // Add cases for 'trending' and 'recommended' if needed, or remove tabs
             case 'trending':
+                 if (trendingIdeas.length === 0) {
+                     return <p className="text-gray-400 text-center">No trending ideas found yet.</p>;
+                 }
                  return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {trendingIdeas.map(idea => (
-                            <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />
+                            <IdeaCard key={idea.ideaId || idea.id} idea={idea} setPage={setPage} />
                         ))}
                     </div>
                  );
             case 'recommended':
                  if (!currentUser) return <p className="text-gray-400 text-center">Please log in to see recommendations.</p>;
+                 if (recommendedIdeas.length === 0) {
+                      return <p className="text-gray-400 text-center col-span-full">No recommendations found. Update your profile interests and skills.</p>;
+                 }
                  return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {recommendedIdeas.length > 0 ? recommendedIdeas.map(idea => (
-                            <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />
-                        )) : <p className="text-gray-400 text-center col-span-full">No recommendations found. Update your profile interests and skills.</p>}
+                        {recommendedIdeas.map(idea => (
+                            <IdeaCard key={idea.ideaId || idea.id} idea={idea} setPage={setPage} />
+                        ))}
                     </div>
                  );
             default:
@@ -152,7 +170,7 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
                         </button>
                     </nav>
                 </div>
-                
+
                 {renderContent()}
             </div>
         </div>
