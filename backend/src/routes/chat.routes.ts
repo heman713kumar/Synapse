@@ -1,3 +1,4 @@
+// C:\Users\hemant\Downloads\synapse\backend\src\routes\chat.routes.ts
 import express, { Request, Response, NextFunction, Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware.js';
 import { query } from '../db/database.js';
@@ -9,29 +10,30 @@ router.get('/conversations', authenticateToken, async (req: Request, res: Respon
   try {
     const userId = req.user?.userId;
 
+    // --- (FIXED) This query was corrected to use 'u.id' in the subqueries ---
     const result = await query(
       `SELECT DISTINCT 
         CASE 
-          WHEN sender_id = $1 THEN recipient_id 
-          ELSE sender_id 
+          WHEN cm.sender_id = $1 THEN cm.recipient_id 
+          ELSE cm.sender_id 
         END as other_user_id,
         u.username as other_username,
         u.display_name as other_display_name,
         u.avatar_url as other_avatar_url,
         (SELECT content FROM chat_messages 
-         WHERE (sender_id = $1 AND recipient_id = other_user_id) 
-            OR (sender_id = other_user_id AND recipient_id = $1) 
+         WHERE (sender_id = $1 AND recipient_id = u.id)  -- Was other_user_id
+            OR (sender_id = u.id AND recipient_id = $1)  -- Was other_user_id
          ORDER BY created_at DESC LIMIT 1) as last_message,
         (SELECT created_at FROM chat_messages 
-         WHERE (sender_id = $1 AND recipient_id = other_user_id) 
-            OR (sender_id = other_user_id AND recipient_id = $1) 
+         WHERE (sender_id = $1 AND recipient_id = u.id)  -- Was other_user_id
+            OR (sender_id = u.id AND recipient_id = $1)  -- Was other_user_id
          ORDER BY created_at DESC LIMIT 1) as last_message_time
        FROM chat_messages cm
        JOIN users u ON u.id = CASE 
           WHEN cm.sender_id = $1 THEN cm.recipient_id 
           ELSE cm.sender_id 
         END
-       WHERE sender_id = $1 OR recipient_id = $1
+       WHERE cm.sender_id = $1 OR cm.recipient_id = $1
        ORDER BY last_message_time DESC`,
       [userId]
     );
@@ -95,7 +97,7 @@ router.post('/:otherUserId/read', authenticateToken, async (req: Request, res: R
       `UPDATE chat_messages 
        SET read = true 
        WHERE sender_id = $1 AND recipient_id = $2 AND read = false`,
-      [otherUserId, userId]
+      [otherUserId, userId] // Note: sender is other user, recipient is me
     );
 
     res.json({ message: 'Messages marked as read' });
