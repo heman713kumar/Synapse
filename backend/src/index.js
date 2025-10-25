@@ -17,6 +17,7 @@ import ideasRoutes from './routes/ideas.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import aiRoutes from './routes/ai.routes.js';
+import feedRoutes from './routes/feed.routes.js'; // ← ADDED
 
 // __dirname fix for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -67,6 +68,7 @@ app.use('/api/ideas', ideasRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/feed', feedRoutes); // ← ADDED
 
 // Basic API info
 app.get('/api', (req: Request, res: Response) => {
@@ -79,7 +81,8 @@ app.get('/api', (req: Request, res: Response) => {
       ideas: '/api/ideas',
       chat: '/api/chat',
       upload: '/api/upload',
-      ai: '/api/ai'
+      ai: '/api/ai',
+      feed: '/api/feed' // ← ADDED
     }
   });
 });
