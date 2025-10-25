@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Page, NotificationSettings as NotificationSettingsType, NotificationChannel } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 
 interface NotificationSettingsProps {
     currentUser: User;
@@ -67,15 +67,22 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ curr
 
     const handleSave = async () => {
         setIsSaving(true);
-        const updatedUser = await api.updateNotificationSettings(currentUser.userId, settings);
-        if (updatedUser) {
-            setCurrentUser(updatedUser);
-            setSaved(true);
-            setTimeout(() => setSaved(false), 2000);
-        } else {
-            alert("Failed to save settings.");
+        try {
+            // FIX: Removed currentUser.userId. Backend gets this from token.
+            const updatedUser = await api.updateNotificationSettings(settings);
+            if (updatedUser) {
+                setCurrentUser(updatedUser);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+            } else {
+                throw new Error("No updated user data returned from API.");
+            }
+        } catch (error: any) {
+            console.error("Failed to save settings:", error);
+            alert(`Failed to save settings: ${error.message || 'Please try again.'}`);
+        } finally {
+            setIsSaving(false);
         }
-        setIsSaving(false);
     };
 
     const settingCategories: { key: keyof Omit<NotificationSettingsType, 'doNotDisturb'>; label: string; description: string }[] = [

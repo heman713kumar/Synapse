@@ -1,36 +1,93 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Idea, User, Page, CollaborationRequest, Comment, BlockchainRecord, Feedback, RecommendedCollaborator, AchievementId, ProgressStage, Milestone } from '../types';
-import { api } from '../services/mockApiService';
-import { XIcon, MessageSquareIcon, ShieldCheckIcon, LoaderIcon, UserPlusIcon, ArrowUpIcon, ArrowDownIcon, StarIcon, CpuIcon, RefreshCwIcon, MoreVerticalIcon, FlagIcon, AlertTriangleIcon, BarChartIcon, PlusIcon, Edit3Icon, TrashIcon, CheckCircleIcon, RocketIcon, CalendarIcon, LayoutTemplateIcon } from './icons';
+import api, { checkBackendHealth } from '../services/backendApiService';
 import { ReportModal } from './ReportModal';
 import { PROGRESS_STAGES } from '../constants';
+import { 
+    WifiOffIcon, // ← ADDED THIS
+    XIcon, 
+    StarIcon, 
+    MoreVerticalIcon, 
+    FlagIcon, 
+    ShieldCheckIcon,
+    UserPlusIcon,
+    BarChartIcon, 
+    AlertTriangleIcon, 
+    ArrowUpIcon, 
+    ArrowDownIcon, 
+    RocketIcon, 
+    PlusIcon, 
+    CheckCircleIcon, 
+    CalendarIcon, 
+    Edit3Icon,
+    TrashIcon,
+    MessageSquareIcon, 
+    LayoutTemplateIcon, 
+    LoaderIcon, 
+    CpuIcon, 
+    RefreshCwIcon 
+} from './icons';
 
 // --- SUB-COMPONENTS FOR ROADMAP ---
 
 const MilestoneFormModal: React.FC<{
+    ideaId: string;
     milestone: Partial<Milestone> | null;
     onClose: () => void;
-    onSave: (data: Omit<Milestone, 'id' | 'status' | 'completedAt'>) => void;
-}> = ({ milestone, onClose, onSave }) => {
+    onSave: (milestoneData: Milestone) => void;
+}> = ({ ideaId, milestone, onClose, onSave }) => {
     const [title, setTitle] = useState(milestone?.title || '');
     const [description, setDescription] = useState(milestone?.description || '');
     const [targetDate, setTargetDate] = useState(milestone?.targetDate ? new Date(milestone.targetDate).toISOString().split('T')[0] : '');
+    const [isSaving, setIsSaving] = useState(false);
+    const [backendOnline, setBackendOnline] = useState(true); // ← KEEP THIS ONE
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title || !description || !targetDate) {
             alert('Please fill out all fields.');
             return;
         }
-        onSave({ title, description, targetDate: new Date(targetDate).toISOString() });
+
+        // Check backend health before proceeding
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
+
+        setIsSaving(true);
+        try {
+            const milestoneData = { title, description, targetDate: new Date(targetDate).toISOString() };
+            let savedMilestone: Milestone;
+            if (milestone?.id) {
+                savedMilestone = await api.editMilestone(ideaId, milestone.id, milestoneData);
+            } else {
+                savedMilestone = await api.addMilestone(ideaId, milestoneData);
+            }
+            onSave(savedMilestone);
+            onClose();
+        } catch (error: any) {
+            console.error("Failed to save milestone:", error);
+            alert(`Failed to save milestone: ${error.message}`);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-[#1A1A24] rounded-2xl shadow-2xl border border-white/10 max-w-lg w-full p-8 relative">
+                {!backendOnline && (
+                    <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 rounded-lg flex items-center space-x-2">
+                        <WifiOffIcon className="w-4 h-4 text-red-400" />
+                        <span className="text-red-300 text-sm">Backend service unavailable</span>
+                    </div>
+                )}
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white"><XIcon className="w-6 h-6" /></button>
-                <h2 className="text-2xl font-bold text-white mb-6">{milestone ? 'Edit' : 'Add'} Milestone</h2>
+                <h2 className="text-2xl font-bold text-white mb-6">{milestone?.id ? 'Edit' : 'Add'} Milestone</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">Title</label>
@@ -44,8 +101,11 @@ const MilestoneFormModal: React.FC<{
                         <label className="block text-sm font-medium text-gray-300 mb-1">Target Date</label>
                         <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} required className="w-full bg-[#252532] border-2 border-[#374151] rounded-lg p-2 text-white" />
                     </div>
-                    <div className="pt-4 flex justify-end">
-                        <button type="submit" className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2 rounded-lg shadow-md hover:opacity-90">Save Milestone</button>
+                    <div className="pt-4 flex justify-end space-x-3">
+                        <button type="button" onClick={onClose} className="bg-[#374151] text-white px-6 py-2 rounded-lg hover:bg-[#4b5563]">Cancel</button>
+                        <button type="submit" disabled={isSaving} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2 rounded-lg shadow-md hover:opacity-90 disabled:opacity-50">
+                           {isSaving ? 'Saving...' : 'Save Milestone'}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -75,13 +135,14 @@ const StarRating: React.FC<{ rating: number, setRating?: (rating: number) => voi
 
 const FeedbackModal: React.FC<{
     idea: Idea;
-    currentUser: User;
+    currentUser: User | null;
     onClose: () => void;
     onSubmit: (feedback: Feedback, unlockedAchievements: AchievementId[]) => void;
 }> = ({ idea, currentUser, onClose, onSubmit }) => {
     const [ratings, setRatings] = useState({ problemClarity: 0, solutionViability: 0, marketPotential: 0 });
     const [comment, setComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [backendOnline, setBackendOnline] = useState(true);
 
     const handleRatingChange = (category: keyof typeof ratings, value: number) => {
         setRatings(prev => ({ ...prev, [category]: value }));
@@ -93,20 +154,46 @@ const FeedbackModal: React.FC<{
             alert('Please provide a rating for all categories and a comment.');
             return;
         }
+        if (!currentUser) {
+             alert("Please log in to submit feedback.");
+             return;
+        }
+
+        // Check backend health before proceeding
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
+
         setIsSubmitting(true);
-        const { feedback, unlockedAchievements } = await api.submitFeedback({
-            ideaId: idea.ideaId,
-            userId: currentUser.userId,
-            ratings,
-            comment,
-        });
-        onSubmit(feedback, unlockedAchievements);
-        setIsSubmitting(false);
+        try {
+            const { feedback, unlockedAchievements } = await api.submitFeedback({
+                ideaId: idea.ideaId,
+                ratings,
+                comment,
+            });
+            onSubmit(feedback, unlockedAchievements);
+            onClose();
+        } catch (error: any) {
+            console.error("Failed to submit feedback:", error);
+            alert(`Failed to submit feedback: ${error.message}`);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-[#1A1A24] rounded-2xl shadow-2xl border border-white/10 max-w-lg w-full p-8 relative">
+                {!backendOnline && (
+                    <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 rounded-lg flex items-center space-x-2">
+                        <WifiOffIcon className="w-4 h-4 text-red-400" />
+                        <span className="text-red-300 text-sm">Backend service unavailable</span>
+                    </div>
+                )}
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white"><XIcon className="w-6 h-6" /></button>
                 <h2 className="text-2xl font-bold text-white mb-2">Provide Feedback</h2>
                 <p className="text-gray-400 mb-6">On idea: <span className="font-semibold text-indigo-400">{idea.title}</span></p>
@@ -120,7 +207,8 @@ const FeedbackModal: React.FC<{
                         <label className="block text-sm font-medium text-gray-300 mb-1">Comment</label>
                         <textarea value={comment} onChange={e => setComment(e.target.value)} rows={4} required className="w-full bg-[#252532] border-2 border-[#374151] rounded-lg p-2 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                     </div>
-                    <div className="pt-4 flex justify-end">
+                    <div className="pt-4 flex justify-end space-x-3">
+                        <button type="button" onClick={onClose} className="bg-[#374151] text-white px-6 py-2 rounded-lg hover:bg-[#4b5563]">Cancel</button>
                         <button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2 rounded-lg shadow-md hover:opacity-90 disabled:opacity-50">
                             {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
                         </button>
@@ -133,10 +221,36 @@ const FeedbackModal: React.FC<{
 
 const FeedbackCard: React.FC<{ feedback: Feedback }> = ({ feedback }) => {
     const [feedbackUser, setFeedbackUser] = useState<User | null>(null);
+    const [backendOnline, setBackendOnline] = useState(true);
 
     useEffect(() => {
-        api.getUserById(feedback.userId).then(setFeedbackUser);
+        const fetchUser = async () => {
+            const isHealthy = await checkBackendHealth();
+            if (!isHealthy) {
+                setBackendOnline(false);
+                return;
+            }
+            setBackendOnline(true);
+            try {
+                const user = await api.getUserById(feedback.userId);
+                setFeedbackUser(user);
+            } catch (error) {
+                console.error('Failed to fetch feedback user:', error);
+            }
+        };
+        fetchUser();
     }, [feedback.userId]);
+
+    if (!backendOnline) {
+        return (
+            <div className="flex items-start space-x-3 py-4">
+                <div className="w-10 h-10 rounded-full bg-gray-700 flex-shrink-0"></div>
+                <div className="flex-1 bg-red-900/20 border border-red-700/30 text-red-300 text-sm p-3 rounded-lg">
+                    Service temporarily unavailable
+                </div>
+            </div>
+        );
+    }
 
     if (!feedbackUser) return <div className="bg-[#252532]/50 p-4 rounded-lg animate-pulse h-24"></div>;
 
@@ -162,20 +276,37 @@ const CollaborationRequestModal: React.FC<{
     onSubmit: (formData: { skills: string, contribution: string, motivation: string }) => void;
 }> = ({ idea, onClose, onSubmit }) => {
     const [formData, setFormData] = useState({ skills: '', contribution: '', motivation: '' });
+    const [backendOnline, setBackendOnline] = useState(true);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Check backend health before proceeding
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
+
         onSubmit(formData);
     };
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-[#1A1A24] rounded-2xl shadow-2xl border border-white/10 max-w-lg w-full p-8 relative">
+                {!backendOnline && (
+                    <div className="mb-4 p-3 bg-red-900/30 border border-red-700/50 rounded-lg flex items-center space-x-2">
+                        <WifiOffIcon className="w-4 h-4 text-red-400" />
+                        <span className="text-red-300 text-sm">Backend service unavailable</span>
+                    </div>
+                )}
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white">
                     <XIcon className="w-6 h-6" />
                 </button>
@@ -209,10 +340,33 @@ const RequestCard: React.FC<{
     onDeny: (id: string) => void,
 }> = ({ request, onApprove, onDeny }) => {
     const [requester, setRequester] = useState<User | null>(null);
+    const [backendOnline, setBackendOnline] = useState(true);
 
     useEffect(() => {
-        api.getUserById(request.requesterId).then(setRequester);
+        const fetchUser = async () => {
+            const isHealthy = await checkBackendHealth();
+            if (!isHealthy) {
+                setBackendOnline(false);
+                return;
+            }
+            setBackendOnline(true);
+            try {
+                const user = await api.getUserById(request.requesterId);
+                setRequester(user);
+            } catch (error) {
+                console.error('Failed to fetch requester:', error);
+            }
+        };
+        fetchUser();
     }, [request.requesterId]);
+
+    if (!backendOnline) {
+        return (
+            <div className="bg-[#252532]/50 p-4 rounded-lg border border-red-700/30">
+                <div className="text-red-300 text-sm text-center">Service unavailable</div>
+            </div>
+        );
+    }
 
     if (!requester) return <div className="bg-[#252532]/50 p-4 rounded-lg animate-pulse"></div>;
 
@@ -241,9 +395,24 @@ const RequestCard: React.FC<{
 const CommentCard: React.FC<{ comment: Comment; onReport: (commentId: string) => void; isGuest: boolean; onGuestAction: () => void; }> = ({ comment, onReport, isGuest, onGuestAction }) => {
     const [commenter, setCommenter] = useState<User | null>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [backendOnline, setBackendOnline] = useState(true);
     
     useEffect(() => {
-        api.getUserById(comment.userId).then(setCommenter);
+        const fetchUser = async () => {
+            const isHealthy = await checkBackendHealth();
+            if (!isHealthy) {
+                setBackendOnline(false);
+                return;
+            }
+            setBackendOnline(true);
+            try {
+                const user = await api.getUserById(comment.userId);
+                setCommenter(user);
+            } catch (error) {
+                console.error('Failed to fetch commenter:', error);
+            }
+        };
+        fetchUser();
     }, [comment.userId]);
     
     const timeAgo = (date: string) => {
@@ -260,6 +429,17 @@ const CommentCard: React.FC<{ comment: Comment; onReport: (commentId: string) =>
         if (interval > 1) return Math.floor(interval) + " minutes ago";
         return Math.floor(seconds) + " seconds ago";
     };
+
+    if (!backendOnline) {
+        return (
+            <div className="flex items-start space-x-3 py-4">
+                <div className="w-10 h-10 rounded-full bg-gray-700 flex-shrink-0"></div>
+                <div className="flex-1 bg-red-900/20 border border-red-700/30 text-red-300 text-sm p-3 rounded-lg">
+                    Service temporarily unavailable
+                </div>
+            </div>
+        );
+    }
 
     if (comment.isUnderReview) {
         return (
@@ -314,13 +494,28 @@ const CommentCard: React.FC<{ comment: Comment; onReport: (commentId: string) =>
 };
 
 const BlockchainRecordCard: React.FC<{ record: BlockchainRecord }> = ({ record }) => {
-    const [collaborator, setCollaborator] = useState<User | null>(null);
+  const [collaborator, setCollaborator] = useState<User | null>(null);
+  const [, setBackendOnline] = useState(true); // ← Remove the unused variable
 
-    useEffect(() => {
-        if (record.recordType === 'collaboration' && record.collaboratorId) {
-            api.getUserById(record.collaboratorId).then(setCollaborator);
+  useEffect(() => {
+    const fetchCollaborator = async () => {
+      if (record.recordType === 'collaboration' && record.collaboratorId) {
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+          setBackendOnline(false);
+          return;
         }
-    }, [record]);
+        setBackendOnline(true);
+        try {
+          const user = await api.getUserById(record.collaboratorId);
+          setCollaborator(user);
+        } catch (error) {
+          console.error('Failed to fetch collaborator:', error);
+        }
+      }
+    };
+    fetchCollaborator();
+  }, [record]);
 
     const getRecordInfo = () => {
         switch (record.recordType) {
@@ -442,7 +637,6 @@ const ProgressTracker: React.FC<{
     );
 };
 
-
 interface IdeaDetailProps {
     ideaId: string;
     currentUser: User | null;
@@ -471,20 +665,35 @@ export const IdeaDetail: React.FC<IdeaDetailProps> = ({ ideaId, currentUser, isG
     const [reportingContent, setReportingContent] = useState<{ type: 'idea' | 'comment'; id: string; title: string; } | null>(null);
     const [showMilestoneForm, setShowMilestoneForm] = useState(false);
     const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
-
+    const [backendOnline, setBackendOnline] = useState(true);
 
     const fetchIdeaData = useCallback(async (isInitialLoad: boolean) => {
         if (isInitialLoad) setIsLoading(true);
-        const ideaData = await api.getIdeaById(ideaId);
-        setIdea(ideaData);
-        if (ideaData) {
-            api.getUserById(ideaData.ownerId).then(setOwner);
-            api.getCollaborationRequestsByIdeaId(ideaId).then(setRequests);
-            api.getCommentsByIdeaId(ideaId).then(setComments);
-            api.getBlockchainRecordsByIdeaId(ideaId).then(setBlockchainRecords);
-            api.getFeedbackByIdeaId(ideaId).then(setFeedbackList);
+        
+        // Check backend health before fetching data
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            if (isInitialLoad) setIsLoading(false);
+            return;
         }
-        if (isInitialLoad) setIsLoading(false);
+        setBackendOnline(true);
+
+        try {
+            const ideaData = await api.getIdeaById(ideaId);
+            setIdea(ideaData);
+            if (ideaData) {
+                api.getUserById(ideaData.ownerId).then(setOwner);
+                api.getCollaborationRequestsByIdeaId(ideaId).then(setRequests);
+                api.getCommentsByIdeaId(ideaId).then(setComments);
+                api.getBlockchainRecordsByIdeaId(ideaId).then(setBlockchainRecords);
+                api.getFeedbackByIdeaId(ideaId).then(setFeedbackList);
+            }
+        } catch (error) {
+            console.error('Failed to fetch idea data:', error);
+        } finally {
+            if (isInitialLoad) setIsLoading(false);
+        }
     }, [ideaId]);
     
     useEffect(() => {
@@ -515,23 +724,62 @@ export const IdeaDetail: React.FC<IdeaDetailProps> = ({ ideaId, currentUser, isG
     
     const fetchRecommendations = useCallback(async () => {
         setIsRecsLoading(true);
-        const recommendations = await api.getRecommendedCollaborators(ideaId);
-        setRecommendedCollaborators(recommendations);
-        setIsRecsLoading(false);
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            setIsRecsLoading(false);
+            return;
+        }
+        setBackendOnline(true);
+        
+        try {
+            const recommendations = await api.getRecommendedCollaborators(ideaId);
+            setRecommendedCollaborators(recommendations);
+        } catch (error) {
+            console.error('Failed to fetch recommendations:', error);
+        } finally {
+            setIsRecsLoading(false);
+        }
     }, [ideaId]);
 
     const handleRequestSubmit = async (formData: { skills: string, contribution: string, motivation: string }) => {
         if (!idea || !currentUser) return;
-        await api.submitCollaborationRequest({ ideaId: idea.ideaId, requesterId: currentUser.userId, ...formData });
-        setCollaborationModalOpen(false);
-        alert('Your collaboration request has been sent!');
-        fetchIdeaData(false); 
+        
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
+
+        try {
+            await api.submitCollaborationRequest({ ideaId: idea.ideaId, ...formData });
+            setCollaborationModalOpen(false);
+            alert('Your collaboration request has been sent!');
+            fetchIdeaData(false); 
+        } catch (error: any) {
+            alert(`Failed to submit request: ${error.message}`);
+        }
     };
     
     const handleUpdateRequestStatus = async (requestId: string, status: 'approved' | 'denied') => {
-        const { unlockedAchievements } = await api.updateCollaborationRequestStatus(requestId, status);
-        onAchievementsUnlock(unlockedAchievements);
-        fetchIdeaData(false);
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
+
+        try {
+            const response = await api.updateCollaborationRequestStatus(requestId, status as 'approved' | 'rejected');
+onAchievementsUnlock(response.unlockedAchievements || []);
+            onAchievementsUnlock([]);
+            fetchIdeaData(false);
+        } catch (error: any) {
+            alert(`Failed to update request: ${error.message}`);
+        }
     };
 
     const handlePostComment = async (e: React.FormEvent) => {
@@ -541,12 +789,26 @@ export const IdeaDetail: React.FC<IdeaDetailProps> = ({ ideaId, currentUser, isG
             return;
         }
         if (!newComment.trim() || !idea || !currentUser) return;
+        
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
+
         setIsPostingComment(true);
-        const postedComment = await api.postComment(idea.ideaId, currentUser.userId, newComment);
-        setComments(prev => [...prev, postedComment]);
-        setIdea(prev => prev ? ({ ...prev, commentsCount: prev.commentsCount + 1 }) : null);
-        setNewComment('');
-        setIsPostingComment(false);
+        try {
+            const postedComment = await api.postComment(idea.ideaId, newComment);
+            setComments(prev => [...prev, postedComment]);
+            setIdea(prev => prev ? ({ ...prev, commentsCount: prev.commentsCount + 1 }) : null);
+            setNewComment('');
+        } catch (error: any) {
+            alert(`Failed to post comment: ${error.message}`);
+        } finally {
+            setIsPostingComment(false);
+        }
     };
 
     const handleVote = async (type: 'up' | 'down') => {
@@ -555,9 +817,22 @@ export const IdeaDetail: React.FC<IdeaDetailProps> = ({ ideaId, currentUser, isG
             return;
         }
         if (!idea || !currentUser) return;
-        const updatedIdea = await api.castVote(idea.ideaId, currentUser.userId, type);
-        if (updatedIdea) {
-            setIdea(updatedIdea);
+        
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
+
+        try {
+            const updatedIdea = await api.castVote(idea.ideaId, type);
+            if (updatedIdea) {
+                setIdea(updatedIdea);
+            }
+        } catch (error: any) {
+            alert(`Failed to cast vote: ${error.message}`);
         }
     };
 
@@ -569,50 +844,87 @@ export const IdeaDetail: React.FC<IdeaDetailProps> = ({ ideaId, currentUser, isG
     
     const handleUpdateProgress = async (newStage: ProgressStage) => {
         if (!idea) return;
-        const updatedIdea = await api.updateIdeaProgressStage(idea.ideaId, newStage);
-        if (updatedIdea) {
-            setIdea(updatedIdea);
+        
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
+
+        try {
+            const updatedIdea = await api.updateIdeaProgressStage(idea.ideaId, newStage);
+            if (updatedIdea) {
+                setIdea(updatedIdea);
+            }
+        } catch (error: any) {
+            alert(`Failed to update progress: ${error.message}`);
         }
     };
 
     const handleReportSubmit = async (reason: any, details: string) => {
         if (!reportingContent || !currentUser) return;
-        await api.submitReport({
-            contentType: reportingContent.type,
-            contentId: reportingContent.id,
-            reporterId: currentUser.userId,
-            reason,
-            details,
-        });
-        setReportingContent(null);
-        alert('Thank you for your report. Our team will review this shortly.');
-        fetchIdeaData(false); // Refetch to show "under review" status
-    };
-
-    const handleSaveMilestone = async (data: Omit<Milestone, 'id' | 'status' | 'completedAt'>) => {
-        if (editingMilestone) {
-            await api.editMilestone(ideaId, editingMilestone.id, data);
-        } else {
-            await api.addMilestone(ideaId, data);
+        
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
         }
-        fetchIdeaData(false);
-        setShowMilestoneForm(false);
-        setEditingMilestone(null);
+        setBackendOnline(true);
+
+        try {
+            await api.submitReport({
+                contentType: reportingContent.type,
+                contentId: reportingContent.id,
+                reason,
+                details,
+            });
+            setReportingContent(null);
+            alert('Thank you for your report. Our team will review this shortly.');
+            fetchIdeaData(false);
+        } catch (error: any) {
+            alert(`Failed to submit report: ${error.message}`);
+        }
     };
 
     const handleDeleteMilestone = async (milestoneId: string) => {
         if (window.confirm('Are you sure you want to delete this milestone?')) {
-            await api.deleteMilestone(ideaId, milestoneId);
-            fetchIdeaData(false);
+            const isHealthy = await checkBackendHealth();
+            if (!isHealthy) {
+                setBackendOnline(false);
+                alert('Backend service is currently unavailable. Please try again later.');
+                return;
+            }
+            setBackendOnline(true);
+
+            try {
+                await api.deleteMilestone(ideaId, milestoneId);
+                fetchIdeaData(false);
+            } catch (error: any) {
+                alert(`Failed to delete milestone: ${error.message}`);
+            }
         }
     };
 
     const handleCompleteMilestone = async (milestoneId: string) => {
-        await api.completeMilestone(ideaId, milestoneId);
-        fetchIdeaData(false);
-        alert('Milestone completed! A success story has been posted to the feed.');
-    };
+        const isHealthy = await checkBackendHealth();
+        if (!isHealthy) {
+            setBackendOnline(false);
+            alert('Backend service is currently unavailable. Please try again later.');
+            return;
+        }
+        setBackendOnline(true);
 
+        try {
+            await api.completeMilestone(ideaId, milestoneId);
+            fetchIdeaData(false);
+            alert('Milestone completed! A success story has been posted to the feed.');
+        } catch (error: any) {
+            alert(`Failed to complete milestone: ${error.message}`);
+        }
+    };
 
     const { upvotes, downvotes, userVote } = useMemo(() => {
         if (!idea) return { upvotes: 0, downvotes: 0, userVote: null };
@@ -673,11 +985,10 @@ export const IdeaDetail: React.FC<IdeaDetailProps> = ({ ideaId, currentUser, isG
     const showProjectBoard = idea.progressStage === 'in-development' || idea.progressStage === 'launched';
     const sortedRoadmap = [...idea.roadmap].sort((a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime());
 
-
     return (
         <>
             {collaborationModalOpen && currentUser && <CollaborationRequestModal idea={idea} onClose={() => setCollaborationModalOpen(false)} onSubmit={handleRequestSubmit} />}
-            {feedbackModalOpen && currentUser && <FeedbackModal idea={idea} currentUser={currentUser} onClose={() => setFeedbackModalOpen(false)} onSubmit={handleFeedbackSubmit} />}
+            {feedbackModalOpen && <FeedbackModal idea={idea} currentUser={currentUser} onClose={() => setFeedbackModalOpen(false)} onSubmit={handleFeedbackSubmit} />}
             {reportingContent && (
                 <ReportModal
                     contentId={reportingContent.id}
@@ -688,16 +999,30 @@ export const IdeaDetail: React.FC<IdeaDetailProps> = ({ ideaId, currentUser, isG
                     onSubmit={handleReportSubmit}
                 />
             )}
-             {showMilestoneForm && (
+            {showMilestoneForm && (
                 <MilestoneFormModal
+                    ideaId={idea.ideaId}
                     milestone={editingMilestone}
                     onClose={() => { setShowMilestoneForm(false); setEditingMilestone(null); }}
-                    onSave={handleSaveMilestone}
+                    onSave={() => {
+                        fetchIdeaData(false);
+                        setShowMilestoneForm(false);
+                        setEditingMilestone(null);
+                    }}
                 />
             )}
             
             <div className="container mx-auto p-4 md:p-8">
                 <div className="max-w-6xl mx-auto">
+                    {!backendOnline && (
+                        <div className="mb-6 p-4 bg-red-900/30 border border-red-700/50 rounded-lg flex items-center space-x-3">
+                            <WifiOffIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
+                            <div>
+                                <h4 className="font-bold text-red-300">Backend Service Unavailable</h4>
+                                <p className="text-red-200 text-sm">Some features may not work properly. Please try again later.</p>
+                            </div>
+                        </div>
+                    )}
                      {idea.isUnderReview && (
                         <div className="bg-yellow-900/30 border border-yellow-700/50 text-yellow-200 text-sm p-4 rounded-lg mb-6 flex items-start space-x-3">
                             <AlertTriangleIcon className="w-5 h-5 mt-0.5 flex-shrink-0" />

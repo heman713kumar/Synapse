@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Idea, User, Page, KanbanBoard as KanbanBoardType, KanbanTask, KanbanColumnId } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { LoaderIcon } from './icons';
 
 interface KanbanBoardProps {
@@ -54,15 +54,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ideaId, currentUser, s
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
-            const ideaData = await api.getIdeaById(ideaId);
-            if (ideaData && (ideaData.ownerId === currentUser.userId || ideaData.collaborators.includes(currentUser.userId))) {
-                setIdea(ideaData);
-                setBoard(ideaData.kanbanBoard || null);
-            } else {
-                alert("You don't have access to this project board.");
-                setPage('feed');
+            try {
+                // api is now backendApiService
+                const ideaData = await api.getIdeaById(ideaId);
+                // Check if user is owner or collaborator
+                if (ideaData && (ideaData.ownerId === currentUser.userId || ideaData.collaborators.includes(currentUser.userId))) {
+                    setIdea(ideaData);
+                    setBoard(ideaData.kanbanBoard || null); 
+                } else {
+                    alert("You don't have access to this project board.");
+                    setPage('feed');
+                }
+            } catch (error) {
+                console.error("Failed to fetch kanban board:", error);
+                alert("Could not load project board.");
+                setPage('ideaDetail', ideaId);
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
         };
         fetchData();
     }, [ideaId, currentUser, setPage]);
@@ -97,15 +106,48 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ideaId, currentUser, s
         const sourceColumn = newBoard.columns[sourceColumnId];
         const targetColumn = newBoard.columns[targetColumnId];
 
-        // Remove from source
-        sourceColumn.taskIds = sourceColumn.taskIds.filter(id => id !== taskId);
-        // Add to target
-        targetColumn.taskIds.push(taskId);
-
-        setBoard(newBoard);
+        // Create new taskIds arrays
+        const newTaskIdsSource = sourceColumn.taskIds.filter(id => id !== taskId);
+        const newTaskIdsTarget = [...targetColumn.taskIds, taskId];
         
-        // API call to save
-        await api.updateKanbanBoard(ideaId, newBoard);
+        // Update the board state immutably
+        setBoard(prevBoard => {
+            if (!prevBoard) return null;
+            return {
+                ...prevBoard,
+                columns: {
+                    ...prevBoard.columns,
+                    [sourceColumnId]: {
+                        ...prevBoard.columns[sourceColumnId],
+                        taskIds: newTaskIdsSource,
+                    },
+                    [targetColumnId]: {
+                        ...prevBoard.columns[targetColumnId],
+                        taskIds: newTaskIdsTarget,
+                    },
+                },
+            };
+        });
+        
+        // Create the board data to be saved
+        const updatedBoardForAPI = {
+            ...board,
+             columns: {
+                ...board.columns,
+                [sourceColumnId]: { ...sourceColumn, taskIds: newTaskIdsSource },
+                [targetColumnId]: { ...targetColumn, taskIds: newTaskIdsTarget },
+            }
+        };
+
+        try {
+            // API call to save
+            await api.updateKanbanBoard(ideaId, updatedBoardForAPI);
+        } catch (error) {
+            console.error("Failed to save kanban board update:", error);
+            alert("Failed to save changes. Reverting.");
+            // Revert state on failure
+            setBoard(board); 
+        }
     };
 
 
@@ -113,10 +155,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ideaId, currentUser, s
         return <div className="flex items-center justify-center h-screen bg-[#0A0A0F]"><LoaderIcon className="w-8 h-8 animate-spin" /></div>;
     }
     if (!idea || !board) {
+        // This handles the case where the idea exists but the board hasn't been created
+        // You might want a button here to *create* the board
         return (
              <div className="flex flex-col items-center justify-center h-screen bg-[#0A0A0F]">
                  <h2 className="text-2xl font-bold text-white mb-4">Project Board Not Found</h2>
                  <p className="text-gray-400">This project does not have a Kanban board yet.</p>
+                 {/* TODO: Add a "Create Board" button for the owner */}
                  <button onClick={() => setPage('ideaDetail', ideaId)} className="mt-6 bg-indigo-600 px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">
                     &larr; Back to Idea Details
                 </button>

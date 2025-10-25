@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Page, Message, Conversation } from '../types';
-import { api } from '../services/mockApiService';
+import api from '../services/backendApiService';
 import { SendIcon, PaperclipIcon, SmileIcon, XIcon, ShieldIcon, MessageSquareIcon } from './icons';
 
 interface ChatProps {
@@ -66,8 +66,7 @@ const MessageBubble: React.FC<{
     );
 };
 
-
-export const Chat: React.FC<ChatProps> = ({ conversationId, currentUser, setPage }) => {
+const Chat: React.FC<ChatProps> = ({ conversationId, currentUser, setPage }) => {
     const [conversation, setConversation] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [participants, setParticipants] = useState<Record<string, User>>({});
@@ -78,7 +77,7 @@ export const Chat: React.FC<ChatProps> = ({ conversationId, currentUser, setPage
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
     const fetchData = React.useCallback(async () => {
-        const convos = await api.getConversationsByUserId(currentUser.userId);
+        const convos = await api.getConversationsByUserId();
         const currentConvo = convos.find(c => c.conversationId === conversationId);
         if (currentConvo) {
             setConversation(currentConvo);
@@ -89,7 +88,7 @@ export const Chat: React.FC<ChatProps> = ({ conversationId, currentUser, setPage
         }
         const messageData = await api.getMessagesByConversationId(conversationId);
         setMessages(messageData);
-    }, [conversationId, currentUser.userId]);
+    }, [conversationId]);
 
     useEffect(() => {
         setIsLoading(true);
@@ -103,7 +102,9 @@ export const Chat: React.FC<ChatProps> = ({ conversationId, currentUser, setPage
     const handleSendMessage = async (e: React.FormEvent, media?: Message['media']) => {
         e.preventDefault();
         if ((!newMessage.trim() && !media) || !conversation) return;
-        const sentMessage = await api.sendMessage(conversation.conversationId, currentUser.userId, newMessage, {
+        const sentMessage = await api.sendMessage({
+            conversationId: conversation.conversationId,
+            text: newMessage,
             replyToMessageId: replyingTo?.messageId,
             media
         });
@@ -113,7 +114,7 @@ export const Chat: React.FC<ChatProps> = ({ conversationId, currentUser, setPage
     };
 
     const handleReact = async (messageId: string, emoji: string) => {
-        const updatedMessage = await api.addReactionToMessage(messageId, currentUser.userId, emoji);
+        const updatedMessage = await api.reactToMessage(messageId, emoji);
         if(updatedMessage) {
             setMessages(prev => prev.map(m => m.messageId === messageId ? updatedMessage : m));
         }
@@ -202,3 +203,5 @@ export const Chat: React.FC<ChatProps> = ({ conversationId, currentUser, setPage
         </div>
     );
 };
+
+export default Chat;

@@ -1,7 +1,7 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { User, Page, Conversation } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { EmptyState } from './EmptyState';
 import { MessageSquareIcon } from './icons';
 
@@ -17,7 +17,8 @@ const ConversationItem: React.FC<{ conversation: Conversation; currentUser: User
         if (!conversation.isGroup) {
             const otherUserId = conversation.participants.find(p => p !== currentUser.userId);
             if (otherUserId) {
-                api.getUserById(otherUserId).then(setOtherUser);
+                // api is now backendApiService
+                api.getUserById(otherUserId).then(setOtherUser).catch(err => console.error("Failed to fetch user", err));
             }
         }
     }, [conversation, currentUser.userId]);
@@ -67,7 +68,8 @@ const RequestItem: React.FC<{ conversation: Conversation; currentUser: User; onA
     useEffect(() => {
         const otherUserId = conversation.participants.find(p => p !== currentUser.userId);
         if (otherUserId) {
-            api.getUserById(otherUserId).then(setOtherUser);
+            // api is now backendApiService
+            api.getUserById(otherUserId).then(setOtherUser).catch(err => console.error("Failed to fetch user", err));
         }
     }, [conversation, currentUser.userId]);
 
@@ -98,12 +100,19 @@ export const Inbox: React.FC<InboxProps> = ({ currentUser, setPage }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'inbox' | 'requests'>('inbox');
     
-    const fetchData = React.useCallback(async () => {
+    const fetchData = useCallback(async () => {
         setIsLoading(true);
-        const data = await api.getConversationsByUserId(currentUser.userId);
-        setConversations(data.sort((a,b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime()));
-        setIsLoading(false);
-    }, [currentUser.userId]);
+        try {
+            // FIX: Removed currentUser.userId. Backend gets this from token.
+            const data = await api.getConversationsByUserId();
+            setConversations(data.sort((a,b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime()));
+        } catch (error) {
+            console.error("Failed to fetch conversations:", error);
+            alert("Could not load messages.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []); // FIX: Dependency array is now empty
     
     useEffect(() => {
         fetchData();
@@ -112,20 +121,31 @@ export const Inbox: React.FC<InboxProps> = ({ currentUser, setPage }) => {
     const { acceptedConversations, pendingRequests } = useMemo(() => {
         return {
             acceptedConversations: conversations.filter(c => c.status === 'accepted'),
-            pendingRequests: conversations.filter(c => c.status === 'pending'),
+            pendingRequests: conversations.filter(c => c.status === 'pending' && c.lastMessage.senderId !== currentUser.userId),
         }
-    }, [conversations]);
+    }, [conversations, currentUser.userId]);
 
     const handleAcceptRequest = async (conversationId: string) => {
-        const success = await api.acceptMessageRequest(conversationId);
-        if (success) {
-            fetchData(); // Refresh list
+        try {
+            const success = await api.acceptMessageRequest(conversationId);
+            if (success) {
+                fetchData(); // Refresh list
+            }
+        } catch (error) {
+            console.error("Failed to accept request:", error);
+            alert("Failed to accept message request.");
         }
     };
     
-    const handleDeclineRequest = (conversationId: string) => {
-        // Mock decline: just remove from view
-        setConversations(prev => prev.filter(c => c.conversationId !== conversationId));
+    const handleDeclineRequest = async (conversationId: string) => {
+        try {
+            // Note: A real decline API might be needed. This just removes locally.
+            // await api.declineMessageRequest(conversationId);
+            setConversations(prev => prev.filter(c => c.conversationId !== conversationId));
+        } catch (error) {
+             console.error("Failed to decline request:", error);
+            alert("Failed to decline message request.");
+        }
     };
 
     if (isLoading) return <div className="text-center p-8">Loading conversations...</div>;

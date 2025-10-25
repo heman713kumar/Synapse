@@ -16,7 +16,12 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ currentUser, isGuest, setPage, setCurrentUser, onGuestAction, onNavigateToLogin, theme, toggleTheme }) => {
     const handleLogout = () => {
+        // Clear local storage on logout
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
         setCurrentUser(null);
+        // We might want to force a page reload or navigate to login
+        setPage('feed'); 
     };
 
     const handleNewIdeaClick = () => {
@@ -61,7 +66,8 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, isGuest, setPage, s
                             </div>
                         ) : (
                            <>
-                                <NotificationBell userId={currentUser.userId} setPage={setPage} />
+                                {/* FIX: Removed userId prop, it's no longer needed */}
+                                <NotificationBell setPage={setPage} />
                                 <div className="relative">
                                     <button onClick={() => setPage('profile', currentUser.userId)} className="flex items-center transition-transform hover:scale-105" aria-label="View Profile">
                                         <img className="h-8 w-8 rounded-full ring-2 ring-transparent hover:ring-indigo-500 transition-all" src={currentUser.avatarUrl} alt={currentUser.name} />

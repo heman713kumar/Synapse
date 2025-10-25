@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { User } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { SECTORS, SKILLS } from '../constants';
 import * as Icons from './icons';
 
@@ -133,7 +133,7 @@ const TutorialStep: React.FC<{ onNext: () => void, onBack: () => void, isSubmitt
 );
 
 
-export const Onboarding: React.FC<OnboardingProps> = ({ currentUser, setCurrentUser, onComplete }) => {
+export const Onboarding: React.FC<OnboardingProps> = ({ setCurrentUser, onComplete }) => {
     const [step, setStep] = useState(1);
     const [interests, setInterests] = useState<string[]>([]);
     const [skills, setSkills] = useState<string[]>([]);
@@ -152,12 +152,18 @@ export const Onboarding: React.FC<OnboardingProps> = ({ currentUser, setCurrentU
             portfolioUrl: portfolioUrl || undefined,
             onboardingCompleted: true,
         };
-        const updatedUser = await api.updateUser(currentUser.userId, updatedData);
-        if (updatedUser) {
-            setCurrentUser(updatedUser);
-            onComplete();
-        } else {
-            alert("Failed to save profile. Please try again.");
+        try {
+            // FIX: Removed currentUser.userId. Backend gets this from token.
+            const updatedUser = await api.updateUser(updatedData);
+            if (updatedUser) {
+                setCurrentUser(updatedUser);
+                onComplete();
+            } else {
+                throw new Error("No updated user data returned from API.");
+            }
+        } catch (error: any) {
+            console.error("Failed to save profile:", error);
+            alert(`Failed to save profile: ${error.message || 'Please try again.'}`);
             setIsSubmitting(false);
         }
     };

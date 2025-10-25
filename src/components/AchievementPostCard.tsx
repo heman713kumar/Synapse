@@ -1,6 +1,8 @@
+// C:\Users\hemant\Downloads\synapse\src\components\AchievementPostCard.tsx
 import React, { useState, useEffect } from 'react';
 import { AchievementPost, User, Page } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { ACHIEVEMENTS } from '../constants';
 import * as Icons from './icons';
 
@@ -14,7 +16,11 @@ export const AchievementPostCard: React.FC<AchievementPostCardProps> = ({ post, 
     const achievement = ACHIEVEMENTS[post.achievementId];
 
     useEffect(() => {
-        api.getUserById(post.userId).then(setUser);
+        // Now calls the real API
+        api.getUserById(post.userId).then(setUser).catch(err => {
+            console.error("Failed to fetch user for achievement post:", err);
+            setUser(null); // Handle error
+        });
     }, [post.userId]);
     
     const timeAgo = (date: string) => {
@@ -32,7 +38,7 @@ export const AchievementPostCard: React.FC<AchievementPostCardProps> = ({ post, 
         return Math.floor(seconds) + " seconds ago";
     };
 
-    if (!user || !achievement) return null;
+    if (!user || !achievement) return null; // Wait for user data
 
     const IconComponent = Icons[achievement.icon as keyof typeof Icons] || Icons.TrophyIcon;
 

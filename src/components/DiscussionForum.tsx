@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Idea, User, ForumMessage, Page } from '../types';
-import { api } from '../services/mockApiService';
+import api from '../services/backendApiService';
 import { SendIcon, UserPlusIcon, UserMinusIcon, PinIcon, TrashIcon, ChevronDownIcon } from './icons';
 import { ConfirmationModal } from './ConfirmationModal';
 
@@ -59,7 +59,7 @@ const MemberList: React.FC<{
                             type="text"
                             value={addUserId}
                             onChange={(e) => setAddUserId(e.target.value)}
-                            placeholder="Enter user ID (e.g. user-2)"
+                            placeholder="Enter user ID"
                             className="flex-1 bg-[#252532] border-2 border-[#374151] rounded-lg py-1 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                         <button onClick={handleAdd} className="bg-indigo-600 p-2 rounded-lg hover:bg-indigo-700">
@@ -105,7 +105,6 @@ const MessageCard: React.FC<{
     );
 };
 
-
 export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, currentUser, setPage }) => {
     const [idea, setIdea] = useState<Idea | null>(null);
     const [messages, setMessages] = useState<ForumMessage[]>([]);
@@ -122,20 +121,26 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
     const fetchData = useCallback(async () => {
-        const ideaData = await api.getIdeaById(ideaId);
-        if (ideaData) {
-            if (!ideaData.forumMembers.includes(currentUser.userId)) {
-                alert("You don't have access to this forum.");
-                setPage('feed');
-                return;
+        try {
+            const ideaData = await api.getIdeaById(ideaId);
+            if (ideaData) {
+                if (!ideaData.forumMembers.includes(currentUser.userId)) {
+                    alert("You don't have access to this forum.");
+                    setPage('feed');
+                    return;
+                }
+                setIdea(ideaData);
+                const memberData = await Promise.all(ideaData.forumMembers.map(id => api.getUserById(id)));
+                setMembers(memberData.filter((u): u is User => u !== null));
+                const messageData = await api.getForumMessages(ideaId);
+                setMessages(messageData);
+            } else {
+                 setPage('feed');
             }
-            setIdea(ideaData);
-            const memberData = await Promise.all(ideaData.forumMembers.map(id => api.getUserById(id)));
-            setMembers(memberData.filter((u): u is User => u !== null));
-            const messageData = await api.getForumMessages(ideaId);
-            setMessages(messageData);
-        } else {
-             setPage('feed');
+        } catch (error) {
+            console.error("Failed to fetch forum data:", error);
+            alert("Could not load forum.");
+            setPage('ideaDetail', ideaId);
         }
     }, [ideaId, currentUser.userId, setPage]);
 
@@ -151,17 +156,27 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newMessage.trim() === '' || !idea) return;
-        const sentMessage = await api.postForumMessage(idea.ideaId, currentUser.userId, newMessage);
-        setMessages(prev => [...prev, sentMessage]);
-        setNewMessage('');
+        try {
+            const sentMessage = await api.postForumMessage(idea.ideaId, newMessage);
+            setMessages(prev => [...prev, sentMessage]);
+            setNewMessage('');
+        } catch (error) {
+            console.error("Failed to send message:", error);
+            alert("Failed to send message.");
+        }
     };
     
     const handleAddMember = async (userId: string) => {
-        const success = await api.addForumMember(ideaId, userId);
-        if (success) {
-            fetchData();
-        } else {
-            alert('Could not add member. User may not exist or is already in the forum.');
+        try {
+            const response = await api.addForumMember(ideaId, userId);
+            if (response.success) {
+                fetchData();
+            } else {
+                alert('Could not add member. User may not exist or is already in the forum.');
+            }
+        } catch (error) {
+            console.error("Failed to add member:", error);
+            alert('Could not add member.');
         }
     };
 
@@ -171,13 +186,19 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
             message: `Are you sure you want to remove ${userName} from the forum? This action cannot be undone.`,
             confirmText: 'Remove',
             onConfirm: async () => {
-                const success = await api.removeForumMember(ideaId, userId);
-                if (success) {
-                    fetchData();
-                } else {
+                try {
+                    const response = await api.removeForumMember(ideaId, userId);
+                    if (response.success) {
+                        fetchData();
+                    } else {
+                        alert('Could not remove member.');
+                    }
+                } catch (error) {
+                    console.error("Failed to remove member:", error);
                     alert('Could not remove member.');
+                } finally {
+                    setConfirmationState(null);
                 }
-                setConfirmationState(null);
             },
         });
     };
@@ -188,16 +209,27 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
             message: 'Are you sure you want to delete this message? This action cannot be undone.',
             confirmText: 'Delete',
             onConfirm: async () => {
-                await api.deleteForumMessage(messageId);
-                fetchData();
-                setConfirmationState(null);
+                try {
+                    await api.deleteForumMessage(messageId);
+                    fetchData();
+                } catch (error) {
+                    console.error("Failed to delete message:", error);
+                    alert('Failed to delete message.');
+                } finally {
+                    setConfirmationState(null);
+                }
             },
         });
     };
 
     const handlePinMessage = async (messageId: string) => {
-        await api.pinForumMessage(messageId);
-        fetchData();
+        try {
+            await api.pinForumMessage(messageId);
+            fetchData();
+        } catch (error) {
+            console.error("Failed to pin message:", error);
+            alert('Failed to update pin status.');
+        }
     };
 
     if (isLoading || !idea) return <div className="flex items-center justify-center h-screen">Loading forum...</div>;
@@ -205,7 +237,6 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
     const isOwner = currentUser.userId === idea.ownerId;
     const pinnedMessages = messages.filter(m => m.isPinned);
     const regularMessages = messages.filter(m => !m.isPinned);
-
 
     return (
         <>

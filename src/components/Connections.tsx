@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Page } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { EmptyState } from './EmptyState';
 import { UsersIcon } from './icons';
 
@@ -14,6 +15,7 @@ export const Connections: React.FC<ConnectionsProps> = ({ userId, setPage }) => 
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        // api is now backendApiService
         api.getUserById(userId).then(async user => {
             if (user) {
                 const connectionData = await Promise.all(
@@ -21,6 +23,9 @@ export const Connections: React.FC<ConnectionsProps> = ({ userId, setPage }) => 
                 );
                 setConnections(connectionData.filter((c): c is User => c !== null));
             }
+            setIsLoading(false);
+        }).catch(err => {
+            console.error("Failed to fetch connections:", err);
             setIsLoading(false);
         });
     }, [userId]);

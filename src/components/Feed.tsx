@@ -1,10 +1,13 @@
+// C:\Users\hemant\Downloads\synapse\src\components\Feed.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { FeedItem, User, Page, Idea } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { IdeaCard } from './IdeaCard';
 import { AchievementPostCard } from './AchievementPostCard';
 import { MilestonePostCard } from './MilestonePostCard';
 import { SECTORS, REGIONS, SKILLS } from '../constants';
+import { LoaderIcon } from './icons'; // Added LoaderIcon
 
 type SortOrder = 'relevant' | 'trending' | 'likes' | 'newest' | 'collaboration' | 'skillMatch';
 
@@ -15,23 +18,23 @@ const calculateRelevanceScore = (idea: Idea, user: User | null): number => {
     const userSkills = new Set(user.skills.map(s => s.skillName));
     const userInterests = new Set(user.interests);
 
-    // Strong boost for matching required skills with user's skills
     let relevanceScore = 0;
-    idea.requiredSkills.forEach(skill => {
+    // Strong boost for matching required skills with user's skills
+    (idea.requiredSkills || []).forEach(skill => {
         if (userSkills.has(skill)) {
             relevanceScore += 15;
         }
     });
 
     // Boost for matching idea tags with user's interests
-    idea.tags.forEach(tag => {
+    (idea.tags || []).forEach(tag => {
         if (userInterests.has(tag)) {
             relevanceScore += 5;
         }
     });
 
     // Stronger boost for matching the idea's sector with user interests
-    if (userInterests.has(idea.sector)) {
+    if (idea.sector && userInterests.has(idea.sector)) {
         relevanceScore += 10;
     }
 
@@ -40,33 +43,24 @@ const calculateRelevanceScore = (idea: Idea, user: User | null): number => {
 
 const calculateTrendingScore = (idea: Idea): number => {
     const hoursAgo = (new Date().getTime() - new Date(idea.createdAt).getTime()) / (1000 * 60 * 60);
-    // Gravity factor pulls down older posts
     const gravity = 1.8;
-    const engagement = idea.likesCount + (idea.commentsCount * 2);
-    // Add 2 to the denominator to prevent extremely high scores for brand new posts
+    const engagement = (idea.likesCount || 0) + ((idea.commentsCount || 0) * 2);
     const trendingScore = engagement / Math.pow(hoursAgo + 2, gravity);
     return trendingScore;
 };
 
 const calculateCollaborationScore = (idea: Idea): number => {
     let collabScore = 0;
+    collabScore += (idea.requiredSkills || []).length * 5;
+    collabScore += (idea.commentsCount || 0) * 2;
 
-    // Prioritize ideas with more required skills, indicating more diverse opportunities.
-    collabScore += idea.requiredSkills.length * 5;
-
-    // More comments suggest an active and engaging idea, which is a good sign for collaboration.
-    collabScore += idea.commentsCount * 2;
-
-    // Strongly prioritize ideas with fewer collaborators, as they have a greater need.
-    if (idea.collaborators.length === 0) {
-        collabScore += 25; // High bonus for ideas needing their first collaborator
+    if ((idea.collaborators || []).length === 0) {
+        collabScore += 25;
     } else {
-        // Provide a diminishing score for ideas that already have some collaborators.
-        collabScore += 10 / idea.collaborators.length;
+        collabScore += 10 / (idea.collaborators.length || 1);
     }
 
-    // Explicitly looking for skills is a strong indicator of collaboration opportunity.
-    if (idea.questionnaire.skillsLooking.trim().length > 5) {
+    if (idea.questionnaire?.skillsLooking?.trim().length > 5) {
         collabScore += 15;
     }
 
@@ -79,7 +73,7 @@ const calculateSkillMatchScore = (idea: Idea, user: User | null): number => {
     const userSkills = new Set(user.skills.map(s => s.skillName));
     let matchCount = 0;
 
-    idea.requiredSkills.forEach(skill => {
+    (idea.requiredSkills || []).forEach(skill => {
         if (userSkills.has(skill)) {
             matchCount++;
         }
@@ -99,9 +93,8 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortOrder, setSortOrder] = useState<SortOrder>('relevant');
+    const [sortOrder, setSortOrder] = useState<SortOrder>(currentUser ? 'relevant' : 'trending'); // Default to relevant if logged in
     const [filters, setFilters] = useState(() => {
-        // Initialize filters from user profile for personalized feed
         const userPrimaryInterest = currentUser?.interests.find(i => SECTORS.includes(i));
         return {
             sector: userPrimaryInterest || '',
@@ -115,26 +108,30 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
             setIsLoading(true);
             setError(null);
             try {
+                // Now calls the real API
                 const data = await api.getFeedItems();
-                setAllFeedItems(data);
-            } catch (e) {
-                setError("Failed to load the feed. Please try again later.");
+                setAllFeedItems(data || []); // Ensure data is an array
+            } catch (e: any) {
+                setError(`Failed to load the feed: ${e.message || 'Please try again later.'}`);
                 console.error(e);
             } finally {
                 setIsLoading(false);
             }
         };
         fetchItems();
-    }, []);
+    }, []); // Only fetch once on load
 
     const filteredItems = useMemo(() => {
         let itemsToProcess = [...allFeedItems];
 
         // Filtering
         itemsToProcess = itemsToProcess.filter(item => {
+            // Always show non-idea posts
             if (item.type === 'achievement' || item.type === 'milestone') return true;
             
             const idea = item.data;
+            if (!idea) return false; // Guard against bad data
+
             let matches = true;
 
             if (searchQuery.trim() !== '') {
@@ -152,7 +149,7 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
             }
 
             if (matches && filters.skills.length > 0) {
-                matches = filters.skills.some(skill => idea.requiredSkills.includes(skill));
+                matches = filters.skills.some(skill => (idea.requiredSkills || []).includes(skill));
             }
             
             return matches;
@@ -160,18 +157,23 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
         
         // Sorting
         itemsToProcess.sort((a, b) => {
+            // Use 'createdAt' which exists on all post types
+            const dateA = a.data.createdAt ? new Date(a.data.createdAt).getTime() : 0;
+            const dateB = b.data.createdAt ? new Date(b.data.createdAt).getTime() : 0;
+
             if (sortOrder === 'newest') {
-                return new Date(b.data.createdAt).getTime() - new Date(a.data.createdAt).getTime();
+                return dateB - dateA;
             }
 
             let scoreA = -1;
             let scoreB = -1;
 
+            // Only apply complex scores to ideas
             if (a.type === 'idea' && b.type === 'idea') {
                 switch (sortOrder) {
                     case 'likes':
-                        scoreA = a.data.likesCount;
-                        scoreB = b.data.likesCount;
+                        scoreA = a.data.likesCount || 0;
+                        scoreB = b.data.likesCount || 0;
                         break;
                     case 'relevant':
                         scoreA = calculateRelevanceScore(a.data, currentUser);
@@ -191,7 +193,7 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
                         break;
                 }
             } else if (a.type === 'idea') {
-                 scoreA = 1; // Prioritize ideas over achievements in non-chronological sorts
+                 scoreA = 1; // Prioritize ideas
                  scoreB = -1;
             } else if (b.type === 'idea') {
                  scoreA = -1;
@@ -203,7 +205,7 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
             }
 
             // Fallback for tie-breaking
-            return new Date(b.data.createdAt).getTime() - new Date(a.data.createdAt).getTime();
+            return dateB - dateA;
         });
 
         return itemsToProcess;
@@ -285,7 +287,7 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
                             <label htmlFor="sort-order" className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Sort By</label>
                             <select id="sort-order" name="sortOrder" value={sortOrder} onChange={handleSortChange} className={selectBaseClass}>
                                 <option value="relevant">Most Relevant</option>
-                                <option value="skillMatch">Skill Match</option>
+                                {currentUser && <option value="skillMatch">Skill Match</option>}
                                 <option value="trending">Trending</option>
                                 <option value="likes">Most Liked</option>
                                 <option value="collaboration">Collaboration Opportunity</option>
@@ -298,7 +300,11 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
                     </div>
                 </div>
                 
-                {isLoading && <div className="text-center p-8">Loading ideas...</div>}
+                {isLoading && (
+                    <div className="flex items-center justify-center h-64">
+                        <LoaderIcon className="w-8 h-8 animate-spin text-indigo-400" />
+                    </div>
+                )}
                 
                 {error && <div className="bg-red-900/20 border border-red-500/30 text-red-300 p-4 rounded-lg text-center">{error}</div>}
 
@@ -307,12 +313,16 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
                         {filteredItems.length > 0 ? (
                              filteredItems.map(item => {
                                 if (item.type === 'idea') {
-                                    return <IdeaCard key={item.data.ideaId} idea={item.data} currentUser={currentUser} setPage={setPage} />
+                                    return <IdeaCard key={item.data.ideaId} idea={item.data} setPage={setPage} />
                                 }
                                 if (item.type === 'achievement') {
+                                    // Make sure post data is valid
+                                    if (!item.data || !item.data.postId) return null;
                                     return <AchievementPostCard key={item.data.postId} post={item.data} setPage={setPage} />
                                 }
                                 if (item.type === 'milestone') {
+                                    // Make sure post data is valid
+                                    if (!item.data || !item.data.postId) return null;
                                     return <MilestonePostCard key={item.data.postId} post={item.data} setPage={setPage} />
                                 }
                                 return null;

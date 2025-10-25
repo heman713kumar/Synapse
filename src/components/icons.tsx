@@ -2,6 +2,18 @@ import React from 'react';
 
 type IconProps = React.SVGProps<SVGSVGElement>;
 
+export const WifiOffIcon = (props: IconProps) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m2 2 20 20"/>
+    <path d="M8.5 16.5a5 5 0 0 1 7 0"/>
+    <path d="M2 8.82a15 15 0 0 1 4.17-2.65"/>
+    <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/>
+    <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/>
+    <path d="M5 13a10 10 0 0 1 5.24-2.76"/>
+    <path d="M12 20h.01"/>
+  </svg>
+);
+
 export const LightbulbIcon = (props: IconProps) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />

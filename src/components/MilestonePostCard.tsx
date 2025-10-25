@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { MilestonePost, User, Page, Idea } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { RocketIcon } from './icons';
 
 interface MilestonePostCardProps {
@@ -15,11 +15,16 @@ export const MilestonePostCard: React.FC<MilestonePostCardProps> = ({ post, setP
 
     useEffect(() => {
         const fetchData = async () => {
-            const ideaData = await api.getIdeaById(post.ideaId);
-            setIdea(ideaData);
-            if (ideaData) {
-                const userData = await api.getUserById(ideaData.ownerId);
-                setUser(userData);
+            try {
+                // api is now backendApiService
+                const ideaData = await api.getIdeaById(post.ideaId);
+                setIdea(ideaData);
+                if (ideaData) {
+                    const userData = await api.getUserById(ideaData.ownerId);
+                    setUser(userData);
+                }
+            } catch (error) {
+                console.error("Failed to fetch milestone post data:", error);
             }
         };
         fetchData();
@@ -36,7 +41,7 @@ export const MilestonePostCard: React.FC<MilestonePostCardProps> = ({ post, setP
         return "just now";
     };
 
-    if (!user || !idea) return null;
+    if (!user || !idea) return null; // Don't render if data is missing
 
     return (
         <div className="bg-gradient-to-br from-[#1A1A24] to-[#1D2E3A] rounded-2xl p-6 shadow-lg border border-cyan-400/20">

@@ -1,6 +1,8 @@
+// C:\Users\hemant\Downloads\synapse\src\components\AnalyticsDashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Idea, User, Page, IdeaAnalytics } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { LoaderIcon, EyeIcon, TrendingUpIcon, UsersIcon, BarChartIcon, MapPinIcon } from './icons';
 
 // --- SUB-COMPONENTS for the Dashboard ---
@@ -34,6 +36,12 @@ const ChartContainer: React.FC<{ title: string; children: React.ReactNode }> = (
 const LineChart: React.FC<{ data: { date: string; views: number }[] }> = ({ data }) => {
     if (!data || data.length === 0) return <p className="text-gray-500 flex items-center justify-center h-full">No data available.</p>;
     const maxValue = Math.max(...data.map(d => d.views), 1); // Avoid division by zero
+    
+    // Ensure at least 2 data points for a line/polygon
+    if (data.length < 2) {
+         return <p className="text-gray-500 flex items-center justify-center h-full">Not enough data for line chart.</p>;
+    }
+    
     const points = data.map((d, i) => `${(i / (data.length - 1)) * 100},${100 - (d.views / maxValue) * 100}`).join(' ');
 
     return (
@@ -64,7 +72,7 @@ const BarChart: React.FC<{ data: { label: string; value: number }[] }> = ({ data
             {data.map((item, index) => (
                 <div key={index} className="flex-1 flex flex-col items-center">
                     <div
-                        className="w-full bg-gradient-to-t from-indigo-500 to-purple-500 rounded-t-md"
+                        className="w-full bg-gradient-to-t from-indigo-500 to-purple-500 rounded-t-md transition-all duration-300 ease-out"
                         style={{ height: `${(item.value / maxValue) * 100}%` }}
                         title={`${item.label}: ${item.value}`}
                     />
@@ -88,6 +96,7 @@ const DonutChart: React.FC<{ data: { skill: string; count: number }[] }> = ({ da
                  <svg viewBox="0 0 36 36" className="w-full h-full">
                     {data.map((item, index) => {
                         const percentage = (item.count / total) * 100;
+                        if (percentage === 0) return null; // Don't render 0% slices
                         const strokeDasharray = `${percentage} ${100 - percentage}`;
                         const strokeDashoffset = 25 - cumulative;
                         cumulative += percentage;
@@ -136,20 +145,28 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ ideaId, 
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
-            const [ideaData, analyticsData] = await Promise.all([
-                api.getIdeaById(ideaId),
-                api.getAnalyticsForIdea(ideaId),
-            ]);
+            try {
+                // Now calls the real API
+                const [ideaData, analyticsData] = await Promise.all([
+                    api.getIdeaById(ideaId),
+                    api.getAnalyticsForIdea(ideaId), // Assumes this exists in backendApiService
+                ]);
 
-            if (ideaData && ideaData.ownerId !== currentUser.userId) {
-                alert("You don't have permission to view these analytics.");
-                setPage('ideaDetail', ideaId);
-                return;
+                if (ideaData && (ideaData.ownerId !== currentUser.userId && !ideaData.collaborators.includes(currentUser.userId))) {
+                    alert("You don't have permission to view these analytics.");
+                    setPage('ideaDetail', ideaId);
+                    return;
+                }
+
+                setIdea(ideaData);
+                setAnalytics(analyticsData);
+            } catch (error) {
+                console.error("Failed to fetch analytics data:", error);
+                alert("Could not load analytics data.");
+                setPage('ideaDetail', ideaId); // Go back if data fails
+            } finally {
+                setIsLoading(false);
             }
-
-            setIdea(ideaData);
-            setAnalytics(analyticsData);
-            setIsLoading(false);
         };
         fetchData();
     }, [ideaId, currentUser.userId, setPage]);

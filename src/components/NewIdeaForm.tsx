@@ -1,12 +1,12 @@
 // C:\Users\hemant\Downloads\synapse\src\components\NewIdeaForm.tsx
 import React, { useState } from 'react';
-import { User, Page, AchievementId, IdeaTemplate } from '../types';
+import { Page, AchievementId, IdeaTemplate } from '../types';
 import { SECTORS, REGIONS, IDEA_TEMPLATES } from '../constants';
+// This import is correct, aliasing backendApiService as api
 import api from '../services/backendApiService';
 import * as Icons from './icons';
 
 interface NewIdeaFormProps {
-    currentUser: User; // Keep this prop
     setPage: (page: Page, id?: string) => void;
     setSelectedIdeaId: (id: string) => void;
     onAchievementsUnlock: (achievementIds: AchievementId[]) => void;
@@ -57,7 +57,7 @@ const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => {
     );
 };
 
-export const NewIdeaForm: React.FC<NewIdeaFormProps> = ({ currentUser, setPage, setSelectedIdeaId, onAchievementsUnlock }) => { // currentUser is now used
+export const NewIdeaForm: React.FC<NewIdeaFormProps> = ({ setPage, setSelectedIdeaId, onAchievementsUnlock }) => {
     const [step, setStep] = useState(1);
     const [selectedTemplate, setSelectedTemplate] = useState<IdeaTemplate | null>(null);
     const [tags, setTags] = useState<string[]>([]);
@@ -112,6 +112,7 @@ export const NewIdeaForm: React.FC<NewIdeaFormProps> = ({ currentUser, setPage, 
         setIsRefining(true);
         setError(null);
         try {
+            // This API call is correct
             const response = await api.refineSummary({ summary: formData.summary });
             setFormData(prev => ({ ...prev, summary: response.refinedSummary || formData.summary }));
         } catch (err: any) {
@@ -131,6 +132,7 @@ export const NewIdeaForm: React.FC<NewIdeaFormProps> = ({ currentUser, setPage, 
         setValidationResult(null);
         setError(null);
         try {
+            // This API call is correct
             const response = await api.analyzeIdea({
                 title: formData.title,
                 description: formData.summary,
@@ -190,8 +192,7 @@ ${(analysis.recommendations ?? []).map((rec: string) => `- ${rec}`).join('\n') |
          setError(null);
          try {
              const newIdeaData = {
-                 // FIX: Use currentUser.userId here
-                 ownerId: currentUser.userId,
+                 // FIX: Removed ownerId. The backend gets this from the auth token.
                  title: formData.title.trim(),
                  description: formData.summary.trim(),
                  tags: tags,

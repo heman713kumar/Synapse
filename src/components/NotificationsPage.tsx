@@ -1,11 +1,11 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Notification, NotificationType, Page } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import * as Icons from './icons';
 
 interface NotificationsPageProps {
-    userId: string;
+    // FIX: Removed userId, backend gets it from token
     setPage: (page: Page, id?: string) => void;
 }
 
@@ -63,15 +63,21 @@ const NotificationItem: React.FC<{ notification: Notification; setPage: (page: P
     );
 };
 
-export const NotificationsPage: React.FC<NotificationsPageProps> = ({ userId, setPage }) => {
+export const NotificationsPage: React.FC<NotificationsPageProps> = ({ setPage }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('all');
 
-    const fetchData = React.useCallback(async () => {
-        const data = await api.getNotificationsByUserId(userId);
-        setNotifications(data);
-    }, [userId]);
+    const fetchData = useCallback(async () => {
+        try {
+            // FIX: Removed userId. Backend gets this from token.
+            const data = await api.getNotificationsByUserId();
+            setNotifications(data);
+        } catch (error) {
+            console.error("Failed to fetch notifications:", error);
+            alert("Could not load notifications. Please try again later.");
+        }
+    }, []); // FIX: Dependency array is now empty
 
     useEffect(() => {
         setIsLoading(true);
@@ -79,8 +85,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ userId, se
     }, [fetchData]);
 
     const handleMarkAllRead = async () => {
-        await api.markAllNotificationsAsRead(userId);
-        fetchData();
+        try {
+            // FIX: Removed userId. Backend gets this from token.
+            await api.markAllNotificationsAsRead();
+            fetchData(); // Refetch after marking all as read
+        } catch (error) {
+            console.error("Failed to mark notifications as read:", error);
+            alert("Could not mark notifications as read. Please try again.");
+        }
     };
     
     const filteredNotifications = useMemo(() => {

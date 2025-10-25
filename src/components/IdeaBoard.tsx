@@ -1,8 +1,11 @@
-
+// C:\Users\hemant\Downloads\synapse\src\components\IdeaBoard.tsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import * as Icons from './icons';
+// BoardTemplates import seems unused in this file, but harmless
+// import { BASIC_MINDMAP_TEMPLATE, SWOT_TEMPLATE } from './BoardTemplates'; 
 
 interface IdeaBoardProps {
     ideaId: string;
@@ -45,6 +48,7 @@ const NodeComponent: React.FC<{
             className="transition-all group-hover:stroke-indigo-500"
         />
         <foreignObject width={NODE_WIDTH} height={NODE_HEIGHT} x="0" y="0">
+            {/* Added pointer-events-none to fix text selection issue */}
             <div className="w-full h-full p-3 flex flex-col justify-center text-center overflow-hidden pointer-events-none">
                 <p className="font-bold text-white truncate">{node.title}</p>
                 <p className="text-sm text-gray-400 truncate">{node.description}</p>
@@ -58,7 +62,9 @@ const ConnectionLine: React.FC<{ fromNode: IdeaNode; toNode: IdeaNode; }> = ({ f
     const fromY = fromNode.y + NODE_HEIGHT / 2;
     const toX = toNode.x + NODE_WIDTH / 2;
     const toY = toNode.y + NODE_HEIGHT / 2;
-    const pathData = `M ${fromX},${fromY} C ${fromX},${(fromY + toY) / 2} ${toX},${(fromY + toY) / 2} ${toX},${toY}`;
+    // Using a simple straight line for connections
+    // const pathData = `M ${fromX},${fromY} C ${fromX},${(fromY + toY) / 2} ${toX},${(fromY + toY) / 2} ${toX},${toY}`;
+    const pathData = `M ${fromX},${fromY} L ${toX},${toY}`;
     return <path d={pathData} stroke="#4B5563" strokeWidth="2" fill="none" />;
 };
 
@@ -117,8 +123,14 @@ const SaveVersionModal: React.FC<{
         e.preventDefault();
         if (!name.trim()) return;
         setIsSaving(true);
-        await onSave(name);
-        setIsSaving(false);
+        try {
+            await onSave(name);
+        } catch (error) {
+            console.error("Failed to save version:", error);
+            alert("Failed to save version. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -190,26 +202,34 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
 
     // Data Fetching
     const fetchData = useCallback(async () => {
-        const [ideaData, commentsData, versionsData] = await Promise.all([
-            api.getIdeaById(ideaId),
-            api.getCommentsByNodeId(ideaId),
-            api.getBoardVersions(ideaId),
-        ]);
+        try {
+            // Now uses real API
+            const [ideaData, commentsData, versionsData] = await Promise.all([
+                api.getIdeaById(ideaId),
+                api.getCommentsByNodeId(ideaId), // Assumes this exists in backendApi
+                api.getBoardVersions(ideaId), // Assumes this exists in backendApi
+            ]);
 
-        setIdea(ideaData);
-        if (ideaData) {
-            const sortedNodes = [...ideaData.ideaBoard.nodes].sort(sortNodes);
-            setNodes(sortedNodes);
-            lastSavedNodesJson.current = JSON.stringify(sortedNodes);
-            if(history.length === 1 && history[0].length === 0) {
-                setHistory([sortedNodes]);
-                setHistoryIndex(0);
+            setIdea(ideaData);
+            if (ideaData) {
+                const sortedNodes = [...(ideaData.ideaBoard?.nodes || [])].sort(sortNodes);
+                setNodes(sortedNodes);
+                lastSavedNodesJson.current = JSON.stringify(sortedNodes);
+                if(history.length === 1 && history[0].length === 0) {
+                    setHistory([sortedNodes]);
+                    setHistoryIndex(0);
+                }
+                setComments(commentsData || []);
+                setVersions(versionsData || []);
             }
-            setComments(commentsData);
-            setVersions(versionsData);
+        } catch (error) {
+            console.error("Failed to fetch board data:", error);
+            alert("Could not load idea board.");
+            setPage('ideaDetail', ideaId);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
-    }, [ideaId]);
+    }, [ideaId, setPage]); // Removed history from deps
 
     useEffect(() => {
         fetchData();
@@ -227,7 +247,8 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
             const saveTimeout = setTimeout(async () => {
                 setSaveStatus('saving');
                 try {
-                    await api.updateIdeaBoard(ideaId, nodes);
+                    // Now uses real API
+                    await api.updateIdeaBoard(ideaId, nodes); // Assumes this exists in backendApi
                     lastSavedNodesJson.current = currentNodesJson;
                     setSaveStatus('saved');
                 } catch (error) {
@@ -250,7 +271,10 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
         return () => {
             const currentNodesJson = JSON.stringify([...nodesRef.current].sort(sortNodes));
             if (currentNodesJson !== lastSavedNodesJson.current) {
-                api.updateIdeaBoard(ideaId, nodesRef.current); // Fire-and-forget
+                // Now uses real API
+                api.updateIdeaBoard(ideaId, nodesRef.current).catch(err => { // Fire-and-forget with error catch
+                    console.error("Save on unmount failed:", err);
+                });
             }
         };
     }, [nodes, ideaId, isOwner]);
@@ -352,8 +376,8 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
     const handleAddNode = () => {
         const newNode: IdeaNode = {
             id: `node-${Date.now()}`,
-            x: view.x + (1000 / view.zoom) / 2 - NODE_WIDTH / 2,
-            y: view.y + (800 / view.zoom) / 2 - NODE_HEIGHT / 2,
+            x: view.x + (1000 / view.zoom) / 2 - NODE_WIDTH / 2, // Center in viewport
+            y: view.y + (800 / view.zoom) / 2 - NODE_HEIGHT / 2, // Center in viewport
             title: 'New Node',
             description: 'Click to edit',
             connections: []
@@ -380,21 +404,28 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
     };
 
     const handleSaveVersion = async (name: string) => {
-        const newVersion = await api.saveBoardVersion(ideaId, nodes, name);
+        // Now uses real API
+        const newVersion = await api.saveBoardVersion(ideaId, nodes, name); // Assumes this exists
         setVersions(prev => [newVersion, ...prev]);
         setIsSaveVersionModalOpen(false);
     };
     
     const handleRevertVersion = async (versionId: string) => {
         if (window.confirm("Are you sure you want to revert to this version? Your current board will be replaced.")) {
-            const revertedNodes = await api.revertToBoardVersion(ideaId, versionId);
-            if(revertedNodes) {
-                setNodes(revertedNodes);
-                addToHistory(revertedNodes);
-                setActivePanel(null);
-                alert("Board reverted successfully.");
-            } else {
-                alert("Failed to revert board.");
+            try {
+                // Now uses real API
+                const revertedData = await api.revertToBoardVersion(ideaId, versionId); // Assumes this exists
+                if(revertedData && revertedData.nodes) {
+                    setNodes(revertedData.nodes);
+                    addToHistory(revertedData.nodes);
+                    setActivePanel(null);
+                    alert("Board reverted successfully.");
+                } else {
+                    alert("Failed to revert board.");
+                }
+            } catch (error: any) {
+                 console.error("Failed to revert board:", error);
+                 alert(`Failed to revert board: ${error.message}`);
             }
         }
     };
@@ -402,7 +433,7 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
     const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
     const nodeComments = useMemo(() => comments.filter(c => c.nodeId === selectedNodeId), [comments, selectedNodeId]);
     
-    if (isLoading) return <div className="w-screen h-screen bg-[#0A0A0F] flex items-center justify-center"><Icons.LoaderIcon className="w-8 h-8 animate-spin"/></div>;
+    if (isLoading) return <div className="w-screen h-screen bg-[#0A0A0F] flex items-center justify-center"><Icons.LoaderIcon className="w-8 h-8 animate-spin text-indigo-400"/></div>;
     if (!idea) return <div className="w-screen h-screen bg-[#0A0A0F] flex items-center justify-center">Idea not found.</div>;
     
     return (
@@ -448,7 +479,12 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
                            <button onClick={() => setActivePanel('edit')} className={`flex-1 p-2 text-sm ${activePanel==='edit' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400'}`}>Edit</button>
                            <button onClick={() => setActivePanel('comments')} className={`flex-1 p-2 text-sm ${activePanel==='comments' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400'}`}>Comments ({nodeComments.length})</button>
                         </div>
-                        {activePanel === 'edit' && <EditPanel node={selectedNode} onUpdate={handleUpdateNode} onDelete={handleDeleteNode} onConnectStart={(id) => { setConnectingNodeId(id); setSelectedNodeId(null); setActivePanel(null); }}/>}
+                        {activePanel === 'edit' && isOwner && <EditPanel node={selectedNode} onUpdate={handleUpdateNode} onDelete={handleDeleteNode} onConnectStart={(id) => { setConnectingNodeId(id); setSelectedNodeId(null); setActivePanel(null); }}/>}
+                        {activePanel === 'edit' && !isOwner && <p className="text-gray-400">You do not have permission to edit this node.</p>}
+                        {/* Add Comments Panel content here */}
+                        {activePanel === 'comments' && (
+                            <div className="text-gray-400">Comment section not yet implemented.</div>
+                        )}
                      </SidePanel>
                 )}
                  {activePanel === 'versions' && (

@@ -1,13 +1,12 @@
 // C:\Users\hemant\Downloads\synapse\src\components\Login.tsx
 import React, { useState } from 'react';
 import { User, Page } from '../types';
-// FIX: Import the REAL backend API service, assuming it's exported as default
+// FIX: Import the REAL backend API service
 import api from '../services/backendApiService';
 
 interface LoginProps {
-    // Keep setCurrentUser to update App state
-    setCurrentUser: (user: User | null) => void; // Allow null for logout scenarios? Adjust if needed.
-    setPage: (page: Page) => void;
+    setCurrentUser: (user: User | null) => void;
+    setPage: (page: Page, id?: string) => void; // Allow id for navigation
     onGuestLogin: () => void;
 }
 
@@ -33,44 +32,42 @@ export const Login: React.FC<LoginProps> = ({ setCurrentUser, setPage, onGuestLo
             if (mode === 'login') {
                 // Call the backend API login function
                 const response = await api.login({ email: formData.email, password: formData.password });
+                
                 if (response && response.user && response.token) {
                     // FIX: Save the token to localStorage
                     localStorage.setItem('authToken', response.token);
-                    // Update the user state in App.tsx
-                    setCurrentUser(response.user); // Assuming response.user matches User type
-                    // Navigate based on onboarding status (fetch full user if needed)
-                    // If login response doesn't include onboarding status, fetch it
-                    const fullUser = await api.getUserById(response.user.id);
+                    
+                    // Fetch the full user object to get onboarding status
+                    const fullUser = await api.getUserById(response.user.userId || (response.user as any).id);
+                    setCurrentUser(fullUser); // Set the full user
+                    
+                    // Navigate based on onboarding status
                     setPage(fullUser.onboardingCompleted ? 'feed' : 'onboarding');
                 } else {
-                    // Handle cases where response might be okay but data missing
                     setError('Login failed. Please check your credentials.');
                 }
             } else { // Sign up
                 // Call the backend API signup function
-                // Ensure backend /auth/register accepts name, username, email, password
                 const response = await api.signUp({
                     displayName: formData.name, // Map name to displayName
-                    username: formData.username, // Add username field
+                    username: formData.username,
                     email: formData.email,
                     password: formData.password,
-                    // userType: 'thinker' // Add default or allow selection if needed
+                    userType: 'thinker' // Default user type
                 });
+                
                 if (response && response.user && response.token) {
                     // FIX: Save the token to localStorage
                     localStorage.setItem('authToken', response.token);
-                    // Update the user state in App.tsx
-                    setCurrentUser(response.user); // Assuming response.user matches User type
+                    setCurrentUser(response.user as User); // Set the partial user
                     // Navigate to onboarding after signup
                     setPage('onboarding');
                 } else {
-                    // Use error from response if available
                     setError(response?.error || 'Sign up failed. Please try again.');
                 }
             }
         } catch (err: any) {
             console.error(`${mode} error:`, err);
-            // Display the error message from the API request helper
             setError(err.message || `An unexpected error occurred during ${mode}.`);
         } finally {
             setIsLoading(false);

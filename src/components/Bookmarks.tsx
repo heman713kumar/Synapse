@@ -1,6 +1,8 @@
+// C:\Users\hemant\Downloads\synapse\src\components\Bookmarks.tsx
 import React, { useState, useEffect } from 'react';
 import { User, Idea, Page } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { IdeaCard } from './IdeaCard';
 import { EmptyState } from './EmptyState';
 import { BookmarkIcon } from './icons';
@@ -15,9 +17,15 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ currentUser, setPage }) =>
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        // Now calls the real API
         api.getAllIdeas().then(allIdeas => {
-            const userBookmarks = allIdeas.filter(idea => currentUser.bookmarkedIdeas.includes(idea.ideaId));
+            // Ensure currentUser.bookmarkedIdeas is an array before filtering
+            const bookmarkedIds = new Set(currentUser.bookmarkedIdeas || []);
+            const userBookmarks = allIdeas.filter(idea => bookmarkedIds.has(idea.ideaId));
             setBookmarkedIdeas(userBookmarks);
+        }).catch(err => {
+            console.error("Failed to load bookmarked ideas:", err);
+        }).finally(() => {
             setIsLoading(false);
         });
     }, [currentUser.bookmarkedIdeas]);
@@ -31,7 +39,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ currentUser, setPage }) =>
                 <div className="space-y-6">
                     {bookmarkedIdeas.length > 0 ? (
                         bookmarkedIdeas.map(idea => (
-                            <IdeaCard key={idea.ideaId} idea={idea} currentUser={currentUser} setPage={setPage} />
+                            <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />
                         ))
                     ) : (
                         <EmptyState

@@ -1,3 +1,5 @@
+// C:\Users\hemant\Downloads\synapse\src\App.tsx
+import ConnectionTest from './components/ConnectionTest';
 import React, { useState, useEffect } from 'react';
 import { User, Page, AchievementId } from './types';
 import { Login } from './components/Login';
@@ -11,20 +13,20 @@ import { Onboarding } from './components/Onboarding';
 import { Connections } from './components/Connections';
 import { Bookmarks } from './components/Bookmarks';
 import { Inbox } from './components/Inbox';
-import { Chat } from './components/Chat';
+import Chat from './components/Chat';
 import { DiscussionForum } from './components/DiscussionForum';
 import { BottomNavBar } from './components/BottomNavBar';
 import { Explore } from './components/Explore';
 import { NotificationsPage } from './components/NotificationsPage';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { AchievementUnlockedModal } from './components/AchievementUnlockedModal';
-import { api } from './services/mockApiService';
+// This import is correct
+import api from './services/backendApiService';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { NotificationSettings } from './components/NotificationSettings';
 import { LoginPromptModal } from './components/LoginPromptModal';
 import { KanbanBoard } from './components/KanbanBoard';
 
-// FIX: Re-implemented the ErrorBoundary using modern class properties for state and an arrow function for the event handler. This approach is cleaner and more robustly handles the 'this' context, which appears to be the source of the compilation errors.
 class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, { hasError: boolean }> {
   state = { hasError: false };
 
@@ -60,7 +62,6 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, { hasEr
   }
 }
 
-
 const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isGuest, setIsGuest] = useState(false);
@@ -71,6 +72,9 @@ const App: React.FC = () => {
     const [unlockedAchievementsQueue, setUnlockedAchievementsQueue] = useState<AchievementId[]>([]);
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     
+    // Developer flag to show connection test component
+    const [showConnectionTest] = useState(true); // Set to false to hide
+
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'light' || savedTheme === 'dark') {
@@ -96,7 +100,6 @@ const App: React.FC = () => {
         setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
     };
 
-
     const handleNavigation = (page: Page, id?: string) => {
         setPage(page);
         setSelectedIdeaId(page === 'ideaDetail' || page === 'ideaBoard' || page === 'forum' || page === 'analytics' || page === 'kanban' ? id ?? null : null);
@@ -106,20 +109,30 @@ const App: React.FC = () => {
     };
 
     const handleSetCurrentUser = (user: User | null) => {
+        if (user === null) {
+            // Handle Logout
+            localStorage.removeItem('authToken'); // Clear token on logout
+        }
+        // Save user to local storage for persistence across reloads
+        localStorage.setItem('currentUser', JSON.stringify(user));
         setCurrentUser(user);
-        setIsGuest(false); // Can't be a guest if you're logging in/out
+        setIsGuest(false);
     };
     
     const handleGuestLogin = () => {
         setIsGuest(true);
-        setCurrentUser(null);
+        setCurrentUser(null); // Ensure no user is set
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
         handleNavigation('feed');
     };
 
     const handleNavigateToLogin = () => {
         setIsGuest(false);
         setCurrentUser(null);
-        // The main render logic will now show the Login component
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        // Main render logic will show Login component
     };
     
     const handleGuestAction = () => {
@@ -127,7 +140,7 @@ const App: React.FC = () => {
     };
 
     const handleUnlockAchievements = (achievementIds: AchievementId[]) => {
-        if (achievementIds.length > 0) {
+        if (achievementIds && achievementIds.length > 0) {
             setUnlockedAchievementsQueue(prev => [...prev, ...achievementIds]);
         }
     };
@@ -136,15 +149,74 @@ const App: React.FC = () => {
         setUnlockedAchievementsQueue(prev => prev.slice(1));
     };
 
+    const handleOnboardingComplete = () => {
+        if (currentUser) {
+            const updatedUser = { ...currentUser, onboardingCompleted: true };
+            setCurrentUser(updatedUser);
+            localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            handleNavigation('feed');
+        }
+    };
+
+    // Check for existing token on app load
+    useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        const cachedUser = localStorage.getItem('currentUser');
+        
+        if (token && cachedUser) {
+            const user: User = JSON.parse(cachedUser);
+            setCurrentUser(user);
+
+            // Optional: Re-verify token silently in the background
+            api.verifyToken(token)
+                .then(response => {
+                    if (!response.valid) {
+                        // Token is bad, log user out
+                        handleNavigateToLogin();
+                    } else if (response.user?.userId) {
+                         // Token is good, refresh user data silently
+                         api.getUserById(response.user.userId).then(fullUser => {
+                             if(fullUser) handleSetCurrentUser(fullUser);
+                         });
+                    }
+                })
+                .catch(err => {
+                    console.error("Token verification failed:", err);
+                    handleNavigateToLogin(); // Log out on error
+                });
+        } else if (token) {
+            // Has token but no cached user (e.g., old session)
+             api.verifyToken(token)
+                .then(response => {
+                    if (response.valid && response.user?.userId) {
+                        api.getUserById(response.user.userId).then(fullUser => {
+                             if(fullUser) handleSetCurrentUser(fullUser);
+                        });
+                    } else {
+                        handleNavigateToLogin();
+                    }
+                })
+                .catch(() => {
+                    handleNavigateToLogin();
+                });
+        }
+         else {
+            // No token, log in as guest
+            handleGuestLogin();
+        }
+    }, []); // Empty dependency array means this runs once on app mount
+
     if (!currentUser && !isGuest) {
+        // Show login page
         return <Login setCurrentUser={handleSetCurrentUser} setPage={handleNavigation} onGuestLogin={handleGuestLogin} />;
     }
     
     if (currentUser && !currentUser.onboardingCompleted) {
+        // Force onboarding if user is logged in but hasn't completed it
         return <Onboarding 
+            setCurrentUser={setCurrentUser} 
+            onComplete={handleOnboardingComplete} 
             currentUser={currentUser} 
-            setCurrentUser={setCurrentUser}
-            onComplete={() => handleNavigation('feed')} 
         />;
     }
 
@@ -153,51 +225,54 @@ const App: React.FC = () => {
             case 'feed':
                 return <Feed currentUser={currentUser} setPage={handleNavigation} />;
             case 'explore':
-                return <Explore currentUser={currentUser!} setPage={handleNavigation} />;
+                // Pass currentUser (can be null for guest)
+                return <Explore currentUser={currentUser} setPage={handleNavigation} />;
             case 'inbox':
-                if (isGuest) return null; // Should be handled by nav bar
-                return <Inbox currentUser={currentUser!} setPage={handleNavigation} />;
+                if (isGuest || !currentUser) return null; // Should be handled by nav bar
+                return <Inbox currentUser={currentUser} setPage={handleNavigation} />;
             case 'notifications':
-                 if (isGuest) return null;
-                return <NotificationsPage userId={currentUser!.userId} setPage={handleNavigation} />;
+                 if (isGuest || !currentUser) return null;
+                 // FIX: Removed userId prop
+                return <NotificationsPage setPage={handleNavigation} />;
             case 'notificationSettings':
-                 if (isGuest) return null;
-                return <NotificationSettings currentUser={currentUser!} setCurrentUser={setCurrentUser} setPage={handleNavigation} />;
+                 if (isGuest || !currentUser) return null;
+                return <NotificationSettings currentUser={currentUser} setCurrentUser={setCurrentUser} setPage={handleNavigation} />;
             case 'profile':
-                if (isGuest) return null;
-                return <Profile userId={selectedUserId || currentUser!.userId} currentUser={currentUser!} setPage={handleNavigation} />;
+                if (isGuest || !currentUser) return null;
+                return <Profile userId={selectedUserId || currentUser.userId} currentUser={currentUser} setPage={handleNavigation} />;
             case 'ideaDetail':
                 if (selectedIdeaId) return <IdeaDetail ideaId={selectedIdeaId} currentUser={currentUser} isGuest={isGuest} setPage={handleNavigation} onAchievementsUnlock={handleUnlockAchievements} onGuestAction={handleGuestAction} />;
                 break;
             case 'newIdea':
-                if (isGuest) return null;
-                return <NewIdeaForm currentUser={currentUser!} setPage={handleNavigation} setSelectedIdeaId={setSelectedIdeaId} onAchievementsUnlock={handleUnlockAchievements} />;
+                if (isGuest || !currentUser) return null;
+                return <NewIdeaForm setPage={handleNavigation} setSelectedIdeaId={setSelectedIdeaId} onAchievementsUnlock={handleUnlockAchievements} />;
             case 'ideaBoard':
-                if (selectedIdeaId) return <IdeaBoard ideaId={selectedIdeaId} currentUser={currentUser!} setPage={handleNavigation} />;
+                if (isGuest || !currentUser) return null; // Protect board?
+                if (selectedIdeaId) return <IdeaBoard ideaId={selectedIdeaId} currentUser={currentUser} setPage={handleNavigation} />;
                 break;
             case 'kanban':
-                 if (isGuest) return null;
-                if (selectedIdeaId) return <KanbanBoard ideaId={selectedIdeaId} currentUser={currentUser!} setPage={handleNavigation} />;
+                 if (isGuest || !currentUser) return null;
+                if (selectedIdeaId) return <KanbanBoard ideaId={selectedIdeaId} currentUser={currentUser} setPage={handleNavigation} />;
                 break;
             case 'forum':
-                if (isGuest) return null;
-                if (selectedIdeaId) return <DiscussionForum ideaId={selectedIdeaId} currentUser={currentUser!} setPage={handleNavigation} />;
+                if (isGuest || !currentUser) return null;
+                if (selectedIdeaId) return <DiscussionForum ideaId={selectedIdeaId} currentUser={currentUser} setPage={handleNavigation} />;
                 break;
             case 'connections':
-                if (isGuest) return null;
-                return <Connections userId={currentUser!.userId} setPage={handleNavigation} />;
+                if (isGuest || !currentUser) return null;
+                return <Connections userId={currentUser.userId} setPage={handleNavigation} />;
             case 'bookmarks':
-                if (isGuest) return null;
-                return <Bookmarks currentUser={currentUser!} setPage={handleNavigation} />;
+                if (isGuest || !currentUser) return null;
+                return <Bookmarks currentUser={currentUser} setPage={handleNavigation} />;
             case 'chat':
-                if (isGuest) return null;
-                if (selectedConversationId) return <Chat conversationId={selectedConversationId} currentUser={currentUser!} setPage={handleNavigation} />;
+                if (isGuest || !currentUser) return null;
+                if (selectedConversationId) return <Chat conversationId={selectedConversationId} currentUser={currentUser} setPage={handleNavigation} />;
                 break;
             case 'privacyPolicy':
                 return <PrivacyPolicy setPage={handleNavigation} />;
             case 'analytics':
-                if (isGuest) return null;
-                if (selectedIdeaId) return <AnalyticsDashboard ideaId={selectedIdeaId} currentUser={currentUser!} setPage={handleNavigation} />;
+                if (isGuest || !currentUser) return null;
+                if (selectedIdeaId) return <AnalyticsDashboard ideaId={selectedIdeaId} currentUser={currentUser} setPage={handleNavigation} />;
                 break;
             default:
                 return <Feed currentUser={currentUser} setPage={handleNavigation} />;
@@ -213,6 +288,8 @@ const App: React.FC = () => {
     return (
         <div className="min-h-screen font-sans">
              <ErrorBoundary>
+                {/* Conditionally render ConnectionTest for debugging */}
+                {showConnectionTest && <ConnectionTest />}
                 {showHeader && <Header currentUser={currentUser} isGuest={isGuest} setPage={handleNavigation} setCurrentUser={handleSetCurrentUser} onGuestAction={handleGuestAction} onNavigateToLogin={handleNavigateToLogin} theme={theme} toggleTheme={toggleTheme} />}
                 <main className={`${showHeader ? "pt-16" : ""} ${showBottomNav ? "pb-20" : ""}`}>
                     {renderPage()}
@@ -224,7 +301,8 @@ const App: React.FC = () => {
                         achievementId={unlockedAchievementsQueue[0]}
                         onClose={handleModalClose}
                         onShare={() => {
-                            api.shareAchievementToFeed(currentUser.userId, unlockedAchievementsQueue[0]);
+                            // FIX: Removed currentUser.userId. Backend gets this from token.
+                            api.shareAchievementToFeed(unlockedAchievementsQueue[0]);
                             handleModalClose();
                         }}
                     />

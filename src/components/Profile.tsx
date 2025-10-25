@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Idea, Page, UserAchievement, SkillEndorsement } from '../types';
-import { api } from '../services/mockApiService';
+// FIX: Changed mockApiService to backendApiService
+import api from '../services/backendApiService';
 import { IdeaCard } from './IdeaCard';
 import { UsersIcon, MessageSquareIcon, LinkedinIcon, LinkIcon, MoreVerticalIcon, FlagIcon, TrophyIcon, LightbulbIcon, PlusIcon } from './icons';
 import { ReportModal } from './ReportModal';
@@ -25,6 +26,7 @@ const SkillBadgeComponent: React.FC<{
     useEffect(() => {
         const fetchEndorsers = async () => {
             try {
+                // api is now backendApiService
                 const users = await Promise.all(
                     skill.endorsers.slice(0, 3).map(id => api.getUserById(id))
                 );
@@ -89,6 +91,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
             setIsLoading(true);
             setError(null);
             try {
+                // api is now backendApiService
                 const user = await api.getUserById(userId);
                 if (!user) {
                     setError("User not found.");
@@ -123,19 +126,29 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
     const handleConnection = async () => {
         if (isConnecting) return;
         setIsConnecting(true);
-        // This is a mock, in a real app you'd call an API
-        // For now, we'll just toggle the state and assume it works.
-        // A proper implementation would update the currentUser object.
-        await api.sendConnectionRequest(currentUser.userId, userId);
-        setIsConnected(!isConnected); // Optimistic update
-        setIsConnecting(false);
+        try {
+            // FIX: Removed currentUser.userId. Backend gets this from token.
+            await api.sendConnectionRequest(userId);
+            setIsConnected(!isConnected); // Optimistic update
+        } catch (err) {
+            console.error("Connection request failed:", err);
+            alert("Failed to send connection request.");
+        } finally {
+            setIsConnecting(false);
+        }
     };
     
     const handleEndorse = async (skillName: string) => {
         if (!profileUser) return;
-        const updatedUser = await api.endorseSkill(profileUser.userId, currentUser.userId, skillName);
-        if(updatedUser) {
-            setProfileUser(updatedUser);
+        try {
+            // FIX: Removed currentUser.userId. Backend gets this from token.
+            const updatedUser = await api.endorseSkill(profileUser.userId, skillName);
+            if(updatedUser) {
+                setProfileUser(updatedUser);
+            }
+        } catch (err) {
+            console.error("Endorsement failed:", err);
+            alert("Failed to endorse skill.");
         }
     };
 
@@ -146,15 +159,20 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
 
     const handleReportSubmit = async (reason: any, details: string) => {
         if (!profileUser) return;
-        await api.submitReport({
-            contentType: 'user',
-            contentId: profileUser.userId,
-            reporterId: currentUser.userId,
-            reason,
-            details,
-        });
-        setIsReportModalOpen(false);
-        alert('Thank you for your report. Our team will review this shortly.');
+        try {
+            // FIX: Removed reporterId. Backend gets this from token.
+            await api.submitReport({
+                contentType: 'user',
+                contentId: profileUser.userId,
+                reason,
+                details,
+            });
+            setIsReportModalOpen(false);
+            alert('Thank you for your report. Our team will review this shortly.');
+        } catch (err) {
+            console.error("Report submission failed:", err);
+            alert("Failed to submit report.");
+        }
     };
 
     if (isLoading) return <div className="text-center p-8">Loading profile...</div>;
@@ -172,7 +190,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
                     contentTitle={`the profile of ${profileUser.name}`}
                     currentUser={currentUser}
                     onClose={() => setIsReportModalOpen(false)}
-                    onSubmit={handleReportSubmit}
+                    onSubmit={handleReportSubmit} // This now calls the corrected function
                 />
             )}
             <div className="container mx-auto p-4 md:p-8">
@@ -209,7 +227,8 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
                                                 <UsersIcon className="w-5 h-5" />
                                                 <span>{isConnected ? 'Connected' : 'Connect'}</span>
                                             </button>
-                                            <button onClick={() => api.startConversation(currentUser.userId, profileUser.userId).then(c => setPage('chat', c.conversationId))} className="flex items-center space-x-2 bg-[#252532] text-white px-4 py-2 rounded-lg hover:bg-[#374151]">
+                                            {/* FIX: Removed currentUser.userId. Backend gets this from token. */}
+                                            <button onClick={() => api.startConversation(profileUser.userId).then(c => setPage('chat', c.conversationId))} className="flex items-center space-x-2 bg-[#252532] text-white px-4 py-2 rounded-lg hover:bg-[#374151]">
                                                 <MessageSquareIcon className="w-5 h-5" />
                                                 <span>Message</span>
                                             </button>
@@ -230,7 +249,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
                                         skill={skill} 
                                         currentUser={currentUser} 
                                         isEndorsable={!isCurrentUserProfile}
-                                        onEndorse={() => handleEndorse(skill.skillName)}
+                                        onEndorse={() => handleEndorse(skill.skillName)} // This now calls the corrected function
                                     />
                                 )) : <p className="text-gray-500 col-span-full">No skills listed yet.</p>}
                             </div>
@@ -255,7 +274,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
                                         <div>
                                             <h3 className="text-lg font-semibold text-white mb-4">Owned Ideas</h3>
                                             <div className="space-y-4">
-                                                {userIdeas.map(idea => <IdeaCard key={idea.ideaId} idea={idea} currentUser={currentUser} setPage={setPage} />)}
+                                                {userIdeas.map(idea => <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />)}
                                             </div>
                                         </div>
                                     )}
@@ -263,7 +282,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
                                         <div>
                                             <h3 className="text-lg font-semibold text-white mb-4">Collaborating On</h3>
                                             <div className="space-y-4">
-                                                {collaborationIdeas.map(idea => <IdeaCard key={idea.ideaId} idea={idea} currentUser={currentUser} setPage={setPage} />)}
+                                                {collaborationIdeas.map(idea => <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />)}
                                             </div>
                                         </div>
                                     )}
