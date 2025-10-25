@@ -1,51 +1,51 @@
-// C:\Users\hemant\Downloads\synapse\src\components\ConnectionTest.tsx
 import React, { useState, useEffect } from 'react';
-import { checkBackendHealth } from '../services/backendApiService'; // Import the specific function
+import { checkBackendHealth } from '../services/backendApiService';
+import './ConnectionTest.css';
 
 const ConnectionTest: React.FC = () => {
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const testBackendConnection = async () => {
-    setLoading(true);
-    setBackendStatus('Checking...');
+  // Define frontendUrl properly
+  const frontendUrl = window.location.origin;
+  const targetBackendUrl = (import.meta.env.VITE_API_URL || 'https://synapse-backend-api.onrender.com/api').replace('/api', '');
+
+  const testConnection = async () => {
+    setIsLoading(true);
+    setBackendStatus('Testing...');
+    
     try {
-      const isHealthy = await checkBackendHealth(); // Use the imported function
-      if (isHealthy) {
-        setBackendStatus('✅ Backend Connected & Healthy');
-      } else {
-        setBackendStatus('❌ Backend Connection Failed (Health Check)');
-      }
-    } catch (error: any) {
-      setBackendStatus(`❌ Backend Connection Failed: ${error.message}`);
+      const isHealthy = await checkBackendHealth();
+      setBackendStatus(isHealthy ? 'Backend Connected & Healthy' : 'Backend Connection Failed');
+    } catch (error) {
+      setBackendStatus('Backend Connection Error');
       console.error('Connection test failed:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    testBackendConnection();
+    testConnection();
   }, []);
 
-  const backendBaseUrl = (import.meta.env.VITE_API_URL || 'https://synapse-backend-api.onrender.com/api').replace('/api', '');
-
   return (
-    <div className="p-5 bg-gray-100 dark:bg-gray-800 m-5 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-200">
-      <h2 className="text-xl font-bold mb-3">Connection Test</h2>
-      <p><strong>Backend Status:</strong> {backendStatus}</p>
-      <p><strong>Frontend URL:</strong> {frontendUrl}</p>
-      <p><strong>Target Backend URL:</strong> {backendBaseUrl}</p>
-
-      <button
-        onClick={testBackendConnection}
-        disabled={loading}
-        className="mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+    <div className="connection-test">
+      <h2>Connection Test</h2>
+      <div className="status-info">
+        <p><strong>Backend Status:</strong> {backendStatus}</p>
+        <p><strong>Frontend URL:</strong> {frontendUrl}</p>
+        <p><strong>Target Backend URL:</strong> {targetBackendUrl}</p>
+      </div>
+      <button 
+        onClick={testConnection} 
+        disabled={isLoading}
+        className="test-button"
       >
-        {loading ? 'Testing...' : 'Test Connection Again'}
+        {isLoading ? 'Testing...' : 'Test Connection Again'}
       </button>
     </div>
   );
 };
 
-export default ConnectionTest; // Add default export if needed elsewhere
+export default ConnectionTest;
