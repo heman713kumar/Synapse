@@ -6,15 +6,34 @@ import { query } from '../db/database.js';
 
 const router = express.Router();
 
-// --- (FIXED) Helper function to get expiresIn value ---
-// This now returns the string (e.g., "7d") or the default,
-// which the jwt.sign library knows how to parse correctly.
-function getExpiresIn(): string {
-    const envValue = process.env.JWT_EXPIRES_IN;
+// --- (FIXED) Helper function to get expiresIn value (number in seconds) ---
+// This function now correctly parses strings like "7d" or "1h" into seconds.
+function getExpiresInSeconds(): number {
+    const envValue = process.env.JWT_EXPIRES_IN; // e.g., "7d", "1h", "86400"
+    
     if (envValue) {
-        return envValue; // Return "7d" or "1h" directly
+        // Try parsing as a plain number (seconds)
+        const parsedSeconds = parseInt(envValue, 10);
+        if (!isNaN(parsedSeconds) && String(parsedSeconds) === envValue) {
+            return parsedSeconds; // It's a plain number string like "86400"
+        }
+
+        // Try parsing as a string with unit (e.g., "7d", "1h")
+        const unit = envValue.charAt(envValue.length - 1);
+        const value = parseInt(envValue.substring(0, envValue.length - 1), 10);
+
+        if (!isNaN(value)) {
+            switch (unit) {
+                case 'd': return value * 24 * 60 * 60; // days
+                case 'h': return value * 60 * 60; // hours
+                case 'm': return value * 60; // minutes
+                case 's': return value; // seconds
+            }
+        }
     }
-    return '7d'; // Default: 7 days
+    
+    // Default: 7 days in seconds
+    return 7 * 24 * 60 * 60; 
 }
 
 // Register endpoint
@@ -63,9 +82,9 @@ router.post('/register', async (req: Request, res: Response) => {
         const user = result.rows[0];
         const secret: Secret = process.env.JWT_SECRET || 'your-super-secure-jwt-secret-change-this-in-production-12345';
         
-        // --- (FIXED) Use new function ---
+        // --- (FIXED) Use new function that returns a number ---
         const options: SignOptions = {
-            expiresIn: getExpiresIn()
+            expiresIn: getExpiresInSeconds() 
         };
 
         const token = jwt.sign(
@@ -77,14 +96,13 @@ router.post('/register', async (req: Request, res: Response) => {
         console.log('User registered successfully:', user.email);
         res.status(201).json({
           message: 'User registered successfully',
-          // Return the new user object
           user: {
             id: user.id,
             email: user.email,
             username: user.username,
             displayName: user.display_name,
             userType: user.user_type,
-            onboardingCompleted: false // New user
+            onboardingCompleted: false
           },
           token
         });
@@ -111,7 +129,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
         // --- Find user ---
         const result = await query(
-          `SELECT id, email, username, display_name, user_type, password_hash, onboarding_completed, created_at 
+          `SELECT id, email, username, display_name, user_type, password_hash, onboarding_completed, created_at, avatar_url, bio, skills, interests 
            FROM users WHERE email = $1`,
           [email]
         );
@@ -130,9 +148,9 @@ router.post('/login', async (req: Request, res: Response) => {
 
         const secret: Secret = process.env.JWT_SECRET || 'your-super-secure-jwt-secret-change-this-in-production-12345';
         
-        // --- (FIXED) Use new function ---
+        // --- (FIXED) Use new function that returns a number ---
         const options: SignOptions = {
-             expiresIn: getExpiresIn()
+             expiresIn: getExpiresInSeconds()
         };
 
         const token = jwt.sign(
@@ -144,7 +162,6 @@ router.post('/login', async (req: Request, res: Response) => {
         console.log('User logged in successfully:', user.email);
         res.json({
           message: 'Login successful',
-          // Return the full user object
           user: {
             id: user.id,
             email: user.email,
