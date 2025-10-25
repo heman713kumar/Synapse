@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { checkBackendHealth } from '../services/backendApiService';
-import './ConnectionTest.css';
+// REMOVE this line: import './ConnectionTest.css';
 
 const ConnectionTest: React.FC = () => {
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
