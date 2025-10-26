@@ -4,61 +4,60 @@
   "description": "A platform connecting people with ideas (Thinkers) to people who can execute those ideas (Doers), facilitating collaboration and bringing visions to reality.",
   "icons": [
     {
-      "src": "/Synapse/icons/icon-192.png", // <= Updated path
+      "src": "/Synapse/icons/icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable" // Keep maskable if your icon supports it
+      "purpose": "any maskable"
     },
     {
-      "src": "/Synapse/icons/icon-512.png", // <= Updated path
+      "src": "/Synapse/icons/icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable" // Keep maskable if your icon supports it
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/Synapse/",
   "display": "standalone",
   "theme_color": "#1A1A24",
-  "background_color": "#0A0A0F", // Corrected color code format
+  "background_color": "#0A0A0F",
   "categories": ["business", "productivity"],
   "screenshots": [
     {
-      "src": "/Synapse/screenshots/screenshot-desktop-1.png", // <= Updated path
+      "src": "/Synapse/screenshots/screenshot-desktop-1.png",
       "type": "image/png",
       "sizes": "1280x720",
       "form_factor": "wide",
-       "label": "Discover Innovative Ideas" // Added label
+      "label": "Discover Innovative Ideas"
     },
     {
-      "src": "/Synapse/screenshots/screenshot-mobile-1.png", // <= Updated path
+      "src": "/Synapse/screenshots/screenshot-mobile-1.png",
       "type": "image/png",
       "sizes": "720x1280",
       "form_factor": "narrow",
-      "label": "Collaborate with Doers" // Added label
+      "label": "Collaborate with Doers"
     }
-    // Add more screenshots if desired
   ],
   "shortcuts": [
     {
       "name": "New Idea",
       "short_name": "New",
       "description": "Start creating a new idea",
-      "url": "/Synapse/?action=new-idea", // Action param can be handled in App.tsx if needed
-      "icons": [{ "src": "/Synapse/icons/shortcut-new-96.png", "sizes": "96x96" }] // <= Updated path
+      "url": "/Synapse/?action=new-idea",
+      "icons": [{ "src": "/Synapse/icons/shortcut-new-96.png", "sizes": "96x96" }]
     },
     {
       "name": "My Messages",
       "short_name": "Inbox",
       "description": "View your conversations",
       "url": "/Synapse/?action=inbox",
-      "icons": [{ "src": "/Synapse/icons/shortcut-inbox-96.png", "sizes": "96x96" }] // <= Updated path
+      "icons": [{ "src": "/Synapse/icons/shortcut-inbox-96.png", "sizes": "96x96" }]
     },
     {
       "name": "Explore Ideas",
       "short_name": "Explore",
       "description": "Discover new ideas and projects",
       "url": "/Synapse/?action=explore",
-      "icons": [{ "src": "/Synapse/icons/shortcut-explore-96.png", "sizes": "96x96" }] // <= Updated path
+      "icons": [{ "src": "/Synapse/icons/shortcut-explore-96.png", "sizes": "96x96" }]
     }
   ]
 }
