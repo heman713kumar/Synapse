@@ -1,5 +1,7 @@
+// C:\Users\hemant\Downloads\synapse\src\components\ConnectionTest.tsx
 import React, { useState, useEffect } from 'react';
-import { checkBackendHealth } from '../services/backendApiService';
+// --- (FIX) Import the default 'api' service ---
+import api from '../services/backendApiService';
 // REMOVE this line: import './ConnectionTest.css';
 
 const ConnectionTest: React.FC = () => {
@@ -15,7 +17,8 @@ const ConnectionTest: React.FC = () => {
     setBackendStatus('Testing...');
     
     try {
-      const isHealthy = await checkBackendHealth();
+      // --- (FIX) Call the method from the 'api' service ---
+      const isHealthy = await api.checkBackendHealth();
       setBackendStatus(isHealthy ? 'Backend Connected & Healthy' : 'Backend Connection Failed');
     } catch (error) {
       setBackendStatus('Backend Connection Error');

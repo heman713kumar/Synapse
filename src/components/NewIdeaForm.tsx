@@ -217,7 +217,8 @@ ${(analysis.recommendations ?? []).map((rec: string) => `- ${rec}`).join('\n') |
              alert("Your idea has been published!");
 
              setSelectedIdeaId(createdIdea.ideaId);
-             setPage('ideaDetail', createdIdea.ideaId);
+             // --- FIX: Navigate to 'ideaBoard' to show the visual board for the new idea ---
+             setPage('ideaBoard', createdIdea.ideaId);
 
          } catch (err: any) {
              console.error('Publish idea failed:', err);

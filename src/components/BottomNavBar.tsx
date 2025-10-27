@@ -1,3 +1,4 @@
+// C:\Users\hemant\Downloads\synapse\src\components\BottomNavBar.tsx
 import React from 'react';
 import { Page, User } from '../types';
 import { HomeIcon, CompassIcon, MessageSquareIcon, BellIcon, UsersIcon } from './icons';
@@ -60,7 +61,8 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activePage, setPage,
                         icon={UsersIcon}
                         label="Profile"
                         isActive={activePage === 'profile'}
-                        onClick={isGuest ? onGuestAction : () => setPage('profile', currentUser!.userId)}
+                        // --- (FIX) Check for guest OR null user before accessing userId ---
+                        onClick={isGuest || !currentUser ? onGuestAction : () => setPage('profile', currentUser.userId)}
                     />
                 </div>
             </div>

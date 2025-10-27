@@ -1,7 +1,6 @@
 // C:\Users\hemant\Downloads\synapse\src\components\AchievementPostCard.tsx
 import React, { useState, useEffect } from 'react';
 import { AchievementPost, User, Page } from '../types';
-// FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
 import { ACHIEVEMENTS } from '../constants';
 import * as Icons from './icons';
@@ -11,58 +10,69 @@ interface AchievementPostCardProps {
     setPage: (page: Page, id?: string) => void;
 }
 
+const getIconComponent = (iconName: keyof typeof Icons | undefined) => {
+    if (!iconName || !(iconName in Icons)) {
+        return Icons.TrophyIcon; // Default icon
+    }
+    return Icons[iconName] as React.ElementType;
+};
+
+
 export const AchievementPostCard: React.FC<AchievementPostCardProps> = ({ post, setPage }) => {
     const [user, setUser] = useState<User | null>(null);
-    const achievement = ACHIEVEMENTS[post.achievementId];
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Ensure achievementId exists before looking up details
+    const achievementDetails = post?.achievementId ? ACHIEVEMENTS[post.achievementId] : null;
 
     useEffect(() => {
-        // Now calls the real API
-        api.getUserById(post.userId).then(setUser).catch(err => {
-            console.error("Failed to fetch user for achievement post:", err);
-            setUser(null); // Handle error
-        });
-    }, [post.userId]);
-    
-    const timeAgo = (date: string) => {
-        const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
-        let interval = seconds / 31536000;
-        if (interval > 1) return Math.floor(interval) + " years ago";
-        interval = seconds / 2592000;
-        if (interval > 1) return Math.floor(interval) + " months ago";
-        interval = seconds / 86400;
-        if (interval > 1) return Math.floor(interval) + " days ago";
-        interval = seconds / 3600;
-        if (interval > 1) return Math.floor(interval) + " hours ago";
-        interval = seconds / 60;
-        if (interval > 1) return Math.floor(interval) + " minutes ago";
-        return Math.floor(seconds) + " seconds ago";
-    };
+        const fetchUser = async () => {
+            setIsLoading(true);
+            try {
+                if (post?.userId) { // Check if post and userId exist
+                    const userData = await api.getUserById(post.userId);
+                    setUser(userData);
+                } else {
+                    console.warn("Achievement post is missing userId:", post);
+                }
+            } catch (error) {
+                console.error(`Failed to fetch user ${post?.userId} for achievement post:`, error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-    if (!user || !achievement) return null; // Wait for user data
+        fetchUser();
+    }, [post?.userId]); // Depend on post.userId
 
-    const IconComponent = Icons[achievement.icon as keyof typeof Icons] || Icons.TrophyIcon;
+    if (isLoading || !user || !achievementDetails) {
+        return <div className="bg-[#1A1A24] p-4 rounded-lg shadow animate-pulse h-32 border border-white/10"></div>;
+    }
+
+    const IconComponent = getIconComponent(achievementDetails.icon as keyof typeof Icons);
 
     return (
-        <div className="bg-gradient-to-br from-[#1A1A24] to-[#252532] rounded-2xl p-6 shadow-lg border border-yellow-400/20">
-            <div className="flex items-start space-x-4">
-                <button onClick={() => setPage('profile', user.userId)} className="flex-shrink-0">
-                    <img className="h-12 w-12 rounded-full object-cover" src={user.avatarUrl} alt={user.name} />
-                </button>
+        <div className="bg-[#1A1A24] p-4 rounded-lg shadow border border-white/10">
+            <div className="flex items-start space-x-3">
+                 {/* --- FIX: Updated path for GitHub Pages subfolder --- */}
+                <img className="h-12 w-12 rounded-full object-cover" src={user.avatarUrl || '/Synapse/default-avatar.png'} alt={user.displayName || user.username} />
                 <div className="flex-1">
-                    <p className="text-sm text-gray-400 mb-2">
-                        <button onClick={() => setPage('profile', user.userId)} className="font-medium hover:underline text-white">{user.name}</button>
-                        {' '}unlocked a new badge &middot; {timeAgo(post.createdAt)}
+                    <p className="text-sm text-gray-400">
+                         {/* --- (FIXED) Use displayName --- */}
+                        <button onClick={() => setPage('profile', user.userId)} className="font-medium hover:underline text-white">{user.displayName || user.username}</button>
+                        {' unlocked the achievement:'}
                     </p>
-                    
-                    <div className="bg-black/20 p-4 rounded-lg flex items-center space-x-4 border border-white/10">
-                        <div className="w-16 h-16 rounded-full flex items-center justify-center bg-yellow-400/10 flex-shrink-0">
-                            <IconComponent className="w-8 h-8 text-yellow-400" />
-                        </div>
+                    <div className="mt-2 flex items-center space-x-3 bg-[#252532] p-3 rounded-md">
+                        <IconComponent className="w-6 h-6 text-yellow-400 flex-shrink-0" />
                         <div>
-                            <h3 className="font-bold text-xl text-white">{achievement.name}</h3>
-                            <p className="text-sm text-gray-300">{achievement.description}</p>
+                            <h3 className="font-semibold text-white">{achievementDetails.name}</h3>
+                            <p className="text-xs text-gray-400">{achievementDetails.description}</p>
                         </div>
                     </div>
+                     <p className="text-xs text-gray-500 mt-2 text-right">
+                        {/* Safely access createdAt */}
+                        {post.createdAt ? new Date(post.createdAt).toLocaleString() : 'Date unknown'}
+                    </p>
                 </div>
             </div>
         </div>

@@ -1,17 +1,25 @@
 // sw.js
 
-const CACHE_NAME = 'synapse-cache-v13'; // Incremented cache version
+// IMPORTANT: Increment the cache version to force the browser to re-install the Service Worker!
+const CACHE_NAME = 'synapse-cache-v14'; 
 
-// Using absolute paths to match the deployment sub-path.
+// These are the bare minimum, highly reliable paths.
+// All paths must start with the deployment sub-path '/Synapse/'.
 const APP_SHELL_URLS = [
+  // The entry point URL (the root of the app)
   '/Synapse/',
+  // The fallback index file
   '/Synapse/index.html',
+  // Essential metadata file
   '/Synapse/manifest.json',
-  '/Synapse/vite.svg',
-  // Add paths to your actual icons/screenshots if you want them cached immediately
-  '/Synapse/icons/icon-192.png',
-  '/Synapse/icons/icon-512.png',
-  // Add other essential CSS/JS assets if known beforehand (Vite usually handles this via fetch)
+  // We explicitly include the default-avatar.png path here 
+  // since it was the source of the original error.
+  '/Synapse/default-avatar.png', 
+  
+  // NOTE: We have removed all other assets (like vite.svg, icons, 
+  // and hashed JS/CSS) because their final paths are unpredictable at 
+  // the time the service worker is written. They will be cached 
+  // dynamically via the 'fetch' event handler below.
 ];
 
 self.addEventListener('install', event => {
@@ -25,8 +33,10 @@ self.addEventListener('install', event => {
         console.log('Service Worker: Caching app shell');
         // Use addAll with error catching for individual asset failures
         return cache.addAll(APP_SHELL_URLS).catch(error => {
+           // We keep the console.error here to help debug if the issue persists
            console.error('Service Worker: Failed to cache some app shell URLs:', error);
            // Even if some assets fail, the SW install might proceed
+           // (though addAll will fail the promise, we catch it here).
         });
       })
       .catch(error => {

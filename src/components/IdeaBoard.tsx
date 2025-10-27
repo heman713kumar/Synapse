@@ -5,7 +5,7 @@ import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion } from '../ty
 import api from '../services/backendApiService';
 import * as Icons from './icons';
 // BoardTemplates import seems unused in this file, but harmless
-// import { BASIC_MINDMAP_TEMPLATE, SWOT_TEMPLATE } from './BoardTemplates'; 
+// import { BASIC_MINDMAP_TEMPLATE, SWOT_TEMPLATE } from './BoardTemplates';
 
 interface IdeaBoardProps {
     ideaId: string;
@@ -212,6 +212,7 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
 
             setIdea(ideaData);
             if (ideaData) {
+                // --- (FIX 1/5) Add safety check for nodes array ---
                 const sortedNodes = [...(ideaData.ideaBoard?.nodes || [])].sort(sortNodes);
                 setNodes(sortedNodes);
                 lastSavedNodesJson.current = JSON.stringify(sortedNodes);
@@ -356,10 +357,12 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
         if (connectingNodeId && connectingNodeId !== node.id) {
             const updatedNodes = nodes.map(n => {
                 if (n.id === connectingNodeId) {
-                    if (n.connections.includes(node.id)) { // Disconnect if already connected
-                        return { ...n, connections: n.connections.filter(c => c !== node.id) };
+                    // --- (FIX 2/5) Add safety check for connections array ---
+                    const currentConnections = n.connections || [];
+                    if (currentConnections.includes(node.id)) { // Disconnect if already connected
+                        return { ...n, connections: currentConnections.filter(c => c !== node.id) };
                     }
-                    return { ...n, connections: [...n.connections, node.id] };
+                    return { ...n, connections: [...currentConnections, node.id] };
                 }
                 return n;
             });
@@ -380,7 +383,7 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
             y: view.y + (800 / view.zoom) / 2 - NODE_HEIGHT / 2, // Center in viewport
             title: 'New Node',
             description: 'Click to edit',
-            connections: []
+            connections: [] // Initialize connections safely
         };
         const newNodes = [...nodes, newNode];
         setNodes(newNodes);
@@ -396,7 +399,7 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
     const handleDeleteNode = (id: string) => {
         const newNodes = nodes
             .filter(n => n.id !== id)
-            .map(n => ({...n, connections: n.connections.filter(c => c !== id)}));
+            .map(n => ({...n, connections: (n.connections || []).filter(c => c !== id)})); // --- (FIX 3/5) Add safety check here ---
         setNodes(newNodes);
         addToHistory(newNodes);
         setSelectedNodeId(null);
@@ -416,8 +419,10 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
                 // Now uses real API
                 const revertedData = await api.revertToBoardVersion(ideaId, versionId); // Assumes this exists
                 if(revertedData && revertedData.nodes) {
-                    setNodes(revertedData.nodes);
-                    addToHistory(revertedData.nodes);
+                     // --- (FIX 4/5) Add safety check for reverted nodes array ---
+                    const revertedNodes = revertedData.nodes || [];
+                    setNodes(revertedNodes);
+                    addToHistory(revertedNodes);
                     setActivePanel(null);
                     alert("Board reverted successfully.");
                 } else {
@@ -431,7 +436,8 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
     };
 
     const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
-    const nodeComments = useMemo(() => comments.filter(c => c.nodeId === selectedNodeId), [comments, selectedNodeId]);
+    // --- (FIX 5/5) Add safety check for comments array ---
+    const nodeComments = useMemo(() => (comments || []).filter(c => c.nodeId === selectedNodeId), [comments, selectedNodeId]);
     
     if (isLoading) return <div className="w-screen h-screen bg-[#0A0A0F] flex items-center justify-center"><Icons.LoaderIcon className="w-8 h-8 animate-spin text-indigo-400"/></div>;
     if (!idea) return <div className="w-screen h-screen bg-[#0A0A0F] flex items-center justify-center">Idea not found.</div>;
@@ -455,7 +461,7 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
                 <svg ref={svgRef} className="w-full h-full" onMouseDown={handleMouseDown} onWheel={handleWheel}>
                     <g transform={`scale(${view.zoom}) translate(${-view.x}, ${-view.y})`}>
                         {nodes.map(fromNode => 
-                            fromNode.connections.map(toId => {
+                            (fromNode.connections || []).map(toId => { // Add safety check here
                                 const toNode = nodes.find(n => n.id === toId);
                                 if (!toNode) return null;
                                 return <ConnectionLine key={`${fromNode.id}-${toNode.id}`} fromNode={fromNode} toNode={toNode} />;

@@ -13,7 +13,7 @@ import { Onboarding } from './components/Onboarding';
 import { Connections } from './components/Connections';
 import { Bookmarks } from './components/Bookmarks';
 import { Inbox } from './components/Inbox';
-import Chat from './components/Chat';
+import { Chat } from './components/Chat';
 import { DiscussionForum } from './components/DiscussionForum';
 import { BottomNavBar } from './components/BottomNavBar';
 import { Explore } from './components/Explore';
@@ -221,66 +221,81 @@ const App: React.FC = () => {
     }
 
     const renderPage = () => {
+        // --- Centralized logic to prevent rendering protected pages for guests/no user ---
+        const isProtectedPage = [
+            'inbox', 'notifications', 'notificationSettings', 'profile', 'newIdea', 
+            'ideaBoard', 'kanban', 'forum', 'connections', 'bookmarks', 'chat', 'analytics'
+        ].includes(page);
+
+        if (isProtectedPage && (isGuest || !currentUser)) {
+            // If user tries to navigate to a protected page as a guest, redirect to feed.
+            handleNavigation('feed');
+            return <Feed currentUser={currentUser} setPage={handleNavigation} />;
+        }
+        
+        // --- Main Switch for Rendering ---
         switch (page) {
             case 'feed':
                 return <Feed currentUser={currentUser} setPage={handleNavigation} />;
             case 'explore':
-                // Pass currentUser (can be null for guest)
                 return <Explore currentUser={currentUser} setPage={handleNavigation} />;
             case 'inbox':
-                if (isGuest || !currentUser) return null; // Should be handled by nav bar
-                return <Inbox currentUser={currentUser} setPage={handleNavigation} />;
+                // Note: Guest check already performed above
+                return <Inbox currentUser={currentUser!} setPage={handleNavigation} />;
             case 'notifications':
-                 if (isGuest || !currentUser) return null;
-                 // FIX: Removed userId prop
                 return <NotificationsPage setPage={handleNavigation} />;
             case 'notificationSettings':
-                 if (isGuest || !currentUser) return null;
-                return <NotificationSettings currentUser={currentUser} setCurrentUser={setCurrentUser} setPage={handleNavigation} />;
+                return <NotificationSettings currentUser={currentUser!} setCurrentUser={setCurrentUser} setPage={handleNavigation} />;
             case 'profile':
-                if (isGuest || !currentUser) return null;
-                // --- THIS IS THE FIX ---
-                // Changed back to currentUser.userId to match your User type
-                return <Profile userId={selectedUserId || currentUser.userId} currentUser={currentUser} setPage={handleNavigation} />;
+                // If selectedUserId is null, use current user's ID
+                return <Profile userId={selectedUserId || currentUser!.userId} currentUser={currentUser!} setPage={handleNavigation} />;
+            
+            // --- Idea-related pages (must have selectedIdeaId) ---
             case 'ideaDetail':
+                // FIX: Consolidated logic. If no ideaId, fallback happens below.
                 if (selectedIdeaId) return <IdeaDetail ideaId={selectedIdeaId} currentUser={currentUser} isGuest={isGuest} setPage={handleNavigation} onAchievementsUnlock={handleUnlockAchievements} onGuestAction={handleGuestAction} />;
-                break;
-            case 'newIdea':
-                if (isGuest || !currentUser) return null;
-                return <NewIdeaForm setPage={handleNavigation} setSelectedIdeaId={setSelectedIdeaId} onAchievementsUnlock={handleUnlockAchievements} />;
+                break; // Fall through to missing ID logic
             case 'ideaBoard':
-                if (isGuest || !currentUser) return null; // Protect board?
-                if (selectedIdeaId) return <IdeaBoard ideaId={selectedIdeaId} currentUser={currentUser} setPage={handleNavigation} />;
-                break;
+                // FIX: Consolidated logic. If no ideaId, fallback happens below.
+                if (selectedIdeaId) return <IdeaBoard ideaId={selectedIdeaId} currentUser={currentUser!} setPage={handleNavigation} />;
+                break; // Fall through to missing ID logic
             case 'kanban':
-                 if (isGuest || !currentUser) return null;
-                if (selectedIdeaId) return <KanbanBoard ideaId={selectedIdeaId} currentUser={currentUser} setPage={handleNavigation} />;
+                if (selectedIdeaId) return <KanbanBoard ideaId={selectedIdeaId} currentUser={currentUser!} setPage={handleNavigation} />;
                 break;
             case 'forum':
-                if (isGuest || !currentUser) return null;
-                if (selectedIdeaId) return <DiscussionForum ideaId={selectedIdeaId} currentUser={currentUser} setPage={handleNavigation} />;
+                if (selectedIdeaId) return <DiscussionForum ideaId={selectedIdeaId} currentUser={currentUser!} setPage={handleNavigation} />;
                 break;
+            case 'analytics':
+                 if (selectedIdeaId) return <AnalyticsDashboard ideaId={selectedIdeaId} currentUser={currentUser!} setPage={handleNavigation} />;
+                break;
+                
+            case 'newIdea':
+                return <NewIdeaForm setPage={handleNavigation} setSelectedIdeaId={setSelectedIdeaId} onAchievementsUnlock={handleUnlockAchievements} />;
             case 'connections':
-                if (isGuest || !currentUser) return null;
-                return <Connections userId={currentUser.userId} setPage={handleNavigation} />;
+                return <Connections userId={currentUser!.userId} setPage={handleNavigation} />;
             case 'bookmarks':
-                if (isGuest || !currentUser) return null;
-                return <Bookmarks currentUser={currentUser} setPage={handleNavigation} />;
+                return <Bookmarks currentUser={currentUser!} setPage={handleNavigation} />;
             case 'chat':
-                if (isGuest || !currentUser) return null;
-                if (selectedConversationId) return <Chat conversationId={selectedConversationId} currentUser={currentUser} setPage={handleNavigation} />;
+                if (selectedConversationId) return <Chat conversationId={selectedConversationId} currentUser={currentUser!} setPage={handleNavigation} />;
                 break;
             case 'privacyPolicy':
                 return <PrivacyPolicy setPage={handleNavigation} />;
-            case 'analytics':
-                if (isGuest || !currentUser) return null;
-                if (selectedIdeaId) return <AnalyticsDashboard ideaId={selectedIdeaId} currentUser={currentUser} setPage={handleNavigation} />;
-                break;
             default:
+                // This shouldn't happen, but acts as a safe return
                 return <Feed currentUser={currentUser} setPage={handleNavigation} />;
         }
-        // Fallback to feed if required ID is missing
-        handleNavigation('feed');
+
+        // --- Final Fallback Logic: Redirect to feed if an expected ID is missing ---
+        if (selectedIdeaId === null && ['ideaDetail', 'ideaBoard', 'kanban', 'forum', 'analytics'].includes(page)) {
+             handleNavigation('feed');
+             return <Feed currentUser={currentUser} setPage={handleNavigation} />;
+        }
+        if (selectedConversationId === null && page === 'chat') {
+             handleNavigation('feed');
+             return <Feed currentUser={currentUser} setPage={handleNavigation} />;
+        }
+        
+        // Final ultimate fallback (only reached if a switch case used break but didn't return a component)
         return <Feed currentUser={currentUser} setPage={handleNavigation} />;
     }
 

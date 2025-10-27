@@ -26,9 +26,8 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
             setError(null);
             try {
                 const ideas = await api.getAllIdeas();
-                setAllIdeas(ideas || []); // Ensure ideas is an array
+                setAllIdeas(ideas || []);
 
-                // --- (FIXED) Added safety checks for counts ---
                 const sortedIdeas = [...(ideas || [])].sort((a, b) =>
                     ((b.likesCount || 0) + (b.commentsCount || 0)) -
                     ((a.likesCount || 0) + (a.commentsCount || 0))
@@ -37,10 +36,8 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
 
                 if (currentUser) {
                     const userInterests = new Set(currentUser.interests || []);
-                    // Ensure skills is an array before mapping
                     const userSkills = new Set((currentUser.skills || []).map(s => s?.skillName).filter(Boolean));
-                    
-                    // --- (FIXED) Added safety checks for tags and requiredSkills ---
+
                     const recommended = [...(ideas || [])].filter(idea =>
                         (idea.tags || []).some(tag => userInterests.has(tag)) ||
                         (idea.requiredSkills || []).some(skill => userSkills.has(skill))
@@ -84,7 +81,6 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
 
         switch (activeTab) {
             case 'sectors':
-                // Check if any sector has ideas after filtering
                  const hasIdeasInSectors = SECTORS.some(sector => ideasBySector[sector]?.length > 0);
                  if (!hasIdeasInSectors && searchQuery) {
                      return <p className="text-gray-400 text-center">No ideas found matching your search.</p>;
@@ -104,7 +100,7 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
                                     <h2 className="text-2xl font-bold text-white mb-4 border-l-4 border-indigo-500 pl-3">{sector}</h2>
                                     <div className="flex overflow-x-auto space-x-6 pb-4 -mx-4 px-4 scrollbar-thin">
                                         {ideas.map(idea => (
-                                            <div key={idea.ideaId || idea.id} className="w-80 flex-shrink-0"> {/* Use idea.id as fallback */}
+                                            <div key={idea.ideaId} className="w-80 flex-shrink-0">
                                                 <IdeaCard idea={idea} setPage={setPage} />
                                             </div>
                                         ))}
@@ -121,7 +117,7 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
                  return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {trendingIdeas.map(idea => (
-                            <IdeaCard key={idea.ideaId || idea.id} idea={idea} setPage={setPage} />
+                            <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />
                         ))}
                     </div>
                  );
@@ -133,7 +129,7 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
                  return (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {recommendedIdeas.map(idea => (
-                            <IdeaCard key={idea.ideaId || idea.id} idea={idea} setPage={setPage} />
+                            <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />
                         ))}
                     </div>
                  );

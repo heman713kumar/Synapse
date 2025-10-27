@@ -48,7 +48,15 @@ const NotificationItem: React.FC<{ notification: Notification; setPage: (page: P
 
     return (
         <li
-            onClick={() => setPage(notification.link.page, notification.link.id)}
+            onClick={() => {
+    if (notification.link) { // <-- Added check
+        setPage(notification.link.page, notification.link.id);
+    } else {
+         console.warn("Notification link missing:", notification);
+         // Optionally navigate to a default page
+         // setPage('notifications');
+    }
+}}
             className={`p-4 flex items-start space-x-4 cursor-pointer hover:bg-white/5 transition-colors duration-200 ${!notification.read ? 'bg-indigo-900/10' : ''}`}
         >
             <div className={`mt-1 flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${notification.read ? 'bg-gray-700' : 'bg-indigo-600'}`}>

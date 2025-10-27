@@ -1,3 +1,4 @@
+// C:\Users\hemant\Downloads\synapse\src\components\KanbanBoard.tsx
 import React, { useState, useEffect } from 'react';
 import { Idea, User, Page, KanbanBoard as KanbanBoardType, KanbanTask, KanbanColumnId } from '../types';
 // FIX: Changed mockApiService to backendApiService
@@ -57,8 +58,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ideaId, currentUser, s
             try {
                 // api is now backendApiService
                 const ideaData = await api.getIdeaById(ideaId);
-                // Check if user is owner or collaborator
-                if (ideaData && (ideaData.ownerId === currentUser.userId || ideaData.collaborators.includes(currentUser.userId))) {
+                // --- (FIX 1/5) Add safety check for collaborators array ---
+                if (ideaData && (ideaData.ownerId === currentUser.userId || (ideaData.collaborators || []).includes(currentUser.userId))) {
                     setIdea(ideaData);
                     setBoard(ideaData.kanbanBoard || null); 
                 } else {
@@ -92,7 +93,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ideaId, currentUser, s
         // Find the source column
         let sourceColumnId: KanbanColumnId | undefined;
         for (const colId of board.columnOrder) {
-            if (board.columns[colId].taskIds.includes(taskId)) {
+            // --- (FIX 2/5) Add safety check for taskIds array ---
+            if ((board.columns[colId].taskIds || []).includes(taskId)) {
                 sourceColumnId = colId as KanbanColumnId;
                 break;
             }
@@ -107,8 +109,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ideaId, currentUser, s
         const targetColumn = newBoard.columns[targetColumnId];
 
         // Create new taskIds arrays
-        const newTaskIdsSource = sourceColumn.taskIds.filter(id => id !== taskId);
-        const newTaskIdsTarget = [...targetColumn.taskIds, taskId];
+        // --- (FIX 3/5) Add safety check for taskIds array ---
+        const newTaskIdsSource = (sourceColumn.taskIds || []).filter(id => id !== taskId);
+        // --- (FIX 4/5) Add safety check for taskIds array ---
+        const newTaskIdsTarget = [...(targetColumn.taskIds || []), taskId];
         
         // Update the board state immutably
         setBoard(prevBoard => {
@@ -183,7 +187,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ ideaId, currentUser, s
                 <div className="flex space-x-4 h-full">
                     {board.columnOrder.map(columnId => {
                         const column = board.columns[columnId];
-                        const tasks = column.taskIds.map(taskId => board.tasks[taskId]);
+                        // --- (FIX 5/5) Add safety check for taskIds array ---
+                        const tasks = (column.taskIds || []).map(taskId => board.tasks[taskId]);
                         return (
                             <BoardColumn
                                 key={column.id}

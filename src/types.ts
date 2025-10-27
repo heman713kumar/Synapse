@@ -1,4 +1,4 @@
-
+// C:\Users\hemant\Downloads\synapse\src\types.ts
 
 export type Page = 'login' | 'feed' | 'profile' | 'ideaDetail' | 'newIdea' | 'ideaBoard' | 'connections' | 'bookmarks' | 'inbox' | 'chat' | 'forum' | 'explore' | 'notifications' | 'privacyPolicy' | 'analytics' | 'onboarding' | 'notificationSettings' | 'kanban';
 
@@ -14,9 +14,15 @@ export interface Milestone {
 
 export interface MilestonePost {
     postId: string;
-    ideaId: string;
-    milestoneTitle: string;
+    ideaId: string; // Added based on FeedItem
+    milestoneTitle?: string; // Renamed based on FeedItem
+    userId?: string; // Added based on FeedItem
+    title?: string; // Added based on FeedItem
+    description?: string; // Added based on FeedItem
+    milestoneType?: string; // Added based on FeedItem
+    relatedSkills?: string[]; // Added based on FeedItem
     createdAt: string;
+    updatedAt?: string; // Added based on FeedItem
 }
 
 export interface SkillEndorsement {
@@ -49,19 +55,24 @@ export interface KanbanBoard {
 // --- UPDATED TYPES ---
 export interface User {
   userId: string;
-  name: string;
+  displayName: string; // <-- CORRECTED
   email: string;
-  avatarUrl: string;
-  bio: string;
+  avatarUrl: string; // Ensure this is not optional if used directly
+  bio: string; // Ensure this is not optional if used directly
   skills: SkillEndorsement[];
   interests: string[];
   connections: string[]; // array of userIds
-  bookmarkedIdeas: string[]; // array of ideaIds
-  achievements: UserAchievement[];
+  bookmarkedIdeas?: string[]; // Make optional if not always present
+  achievements?: UserAchievement[]; // Make optional if not always present
   linkedInUrl?: string;
   portfolioUrl?: string;
-  onboardingCompleted?: boolean;
-  notificationSettings: NotificationSettings;
+  onboardingCompleted: boolean; // Keep non-optional based on App.tsx logic
+  notificationSettings?: NotificationSettings; // Make optional if not always present
+  // Add other potential fields from backend responses
+  username?: string;
+  userType?: 'thinker' | 'doer' | 'admin';
+  createdAt?: string; // Or Date
+  updatedAt?: string; // Or Date
 }
 
 export interface Idea {
@@ -69,32 +80,43 @@ export interface Idea {
   ownerId: string; // userId
   title: string;
   summary: string;
-  tags: string[];
-  sector: string;
-  region: string;
-  requiredSkills: string[];
-  questionnaire: Questionnaire;
-  ideaBoard: IdeaBoard;
-  status: 'active' | 'archived' | 'in-development';
-  progressStage: ProgressStage;
+  tags: string[]; // Ensure this is always an array []
+  sector?: string;
+  region?: string;
+  requiredSkills: string[]; // Ensure this is always an array []
+  questionnaire?: Questionnaire; // Make optional
+  ideaBoard?: IdeaBoard; // Make optional
+  status?: 'active' | 'archived' | 'in-development'; // Make optional
+  progressStage?: ProgressStage; // Make optional
   createdAt: string; // ISO date string
-  likesCount: number; // Retaining for simple feed display
+  likesCount: number;
   commentsCount: number;
-  collaborators: string[]; // array of userIds
-  forumMembers: string[]; // array of userIds
-  blockchainHash?: string; // Initial hash for backwards compatibility/simple display
-  blockchainTimestamp?: string; // Initial timestamp
-  votes: Vote[];
+  collaborators?: string[]; // Make optional, ensure array
+  forumMembers?: string[]; // Make optional, ensure array
+  blockchainHash?: string;
+  blockchainTimestamp?: string;
+  votes?: Vote[]; // Make optional
   isUnderReview?: boolean;
-  roadmap: Milestone[];
+  roadmap?: Milestone[]; // Make optional
   kanbanBoard?: KanbanBoard;
+  // Add backend fields expected by components
+  ownerUsername?: string;
+  ownerDisplayName?: string;
+  ownerAvatarUrl?: string;
+  description: string;
+  isPublic: boolean; // Keep non-optional based on usage
+  aiAnalysis?: any;
+  updatedAt?: string;
+  // Add fields from feed query
+  id?: string; // Backend might send 'id' sometimes? Keep optional for safety.
 }
 
-export type FeedItem = 
+
+export type FeedItem =
     | { type: 'idea'; data: Idea }
     | { type: 'achievement'; data: AchievementPost }
     | { type: 'milestone'; data: MilestonePost };
-    
+
 // --- EXISTING TYPES ---
 export interface RecommendedCollaborator extends User {
     matchScore: number;
@@ -151,16 +173,16 @@ export interface Vote {
 export interface IdeaAnalytics {
   totalViews: number;
   uniqueVisitors: number;
-  engagementRate: number; // (likes + comments + feedback) / views
-  collaborationConversionRate: number; // approved requests / total requests
+  engagementRate: number;
+  collaborationConversionRate: number;
   viewsOverTime: { date: string; views: number }[];
   geography: { region: string; views: number }[];
   trafficSources: { source: string; visits: number }[];
   collaboratorSkillDemographics: { skill: string; count: number }[];
 }
 
-export type NotificationType = 
-    | 'COLLABORATION_REQUEST' 
+export type NotificationType =
+    | 'COLLABORATION_REQUEST'
     | 'COLLABORATION_APPROVED'
     | 'NEW_COMMENT'
     | 'NEW_FEEDBACK'
@@ -172,41 +194,61 @@ export type NotificationType =
     | 'COLLABORATION_RECORDED'
     | 'NEW_MESSAGE'
     | 'MESSAGE_REQUEST'
-    | 'MILESTONE_COMPLETED'; // New Notification Type
+    | 'MILESTONE_COMPLETED';
 
 export interface Notification {
   id: string;
-  userId: string;
+  userId: string; // Changed from user_id if backend sends userId
   type: NotificationType;
-  message: string;
-  read: boolean;
+  message?: string; // Make optional if not always present
+  content?: string; // Added based on backend table
+  read?: boolean; // Changed from is_read if backend sends read
+  is_read?: boolean; // Keep if backend actually sends this
   createdAt: string; // ISO date string
-  link: {
+  created_at?: string; // Keep if backend sends this
+  link?: { // Make optional
       page: Page;
       id: string;
   };
+  link_url?: string; // Added based on backend table
 }
 
 export interface Comment {
-    commentId: string;
+    commentId: string; // Use this one
+    id?: string; // Add if backend sends 'id'
     ideaId: string;
     userId: string;
     text: string;
     createdAt: string;
+    created_at?: string; // Add if backend sends 'created_at'
     isUnderReview?: boolean;
+    // Add fields returned by backend query
+    username?: string;
+    displayName?: string;
+    avatarUrl?: string;
 }
 
 export interface Feedback {
-  feedbackId: string;
+  feedbackId: string; // Use this one
+  id?: string; // Add if backend sends 'id'
   ideaId: string;
   userId: string;
-  ratings: {
-    problemClarity: number; // 1-5
-    solutionViability: number; // 1-5
-    marketPotential: number; // 1-5
+  ratings?: { // Make optional
+    problemClarity: number;
+    solutionViability: number;
+    marketPotential: number;
   };
-  comment: string;
+  comment?: string; // Make optional
   createdAt: string;
+  created_at?: string; // Add if backend sends 'created_at'
+  // Add fields returned by backend query
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  feasibility?: number;
+  innovation?: number;
+  marketPotential?: number; // Check name consistency with backend (market_potential?)
+  market_potential?: number; // Add if backend sends snake_case
 }
 
 export interface Reaction {
@@ -215,12 +257,16 @@ export interface Reaction {
 }
 
 export interface Message {
-  messageId: string;
+  messageId: string; // Use this one
+  id?: string; // Add if backend sends 'id'
   conversationId: string;
   senderId: string;
-  text: string;
+  text?: string; // Make optional if not always present
+  content?: string; // Add based on backend table
   createdAt: string; // ISO date string
-  isRead: boolean;
+  created_at?: string; // Add if backend sends 'created_at'
+  isRead: boolean; // Use this one
+  read?: boolean; // Add if backend sends 'read'
   reactions?: Reaction[];
   replyToMessageId?: string;
   media?: {
@@ -228,20 +274,39 @@ export interface Message {
       type: 'image' | 'file';
       fileName: string;
   };
+  // Add fields returned by backend query
+  sender_id?: string;
+  recipient_id?: string;
+  message_type?: string;
+  file_url?: string;
 }
 
 export interface Conversation {
-  conversationId: string;
-  participants: string[]; // array of userIds
-  lastMessage: Message;
-  lastUpdatedAt: string; // ISO date string
-  unreadCount: { [userId: string]: number };
+  conversationId: string; // Use this one
+  id?: string; // If backend also returns 'id'
+  participants?: string[]; // Make optional, array of userIds
+  lastMessage?: Message;
+  lastUpdatedAt?: string; // ISO date string
+  unreadCount?: { [userId: string]: number };
   isGroup?: boolean;
   groupName?: string;
   groupAvatar?: string;
   admins?: string[];
   status?: 'pending' | 'accepted' | 'blocked';
+  // Add fields returned by backend query
+  userId?: string; // Other user's ID
+  username?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  lastMessageTime?: string; // Added based on backend query
+  other_user_id?: string; // Added based on backend query
+  other_username?: string; // Added based on backend query
+  other_display_name?: string; // Added based on backend query
+  other_avatar_url?: string; // Added based on backend query
+  last_message?: string; // Added based on backend query
+  last_message_time?: string; // Added based on backend query
 }
+
 
 export interface CollaborationRequest {
   requestId: string;
@@ -289,18 +354,18 @@ export interface Report {
 export type NotificationChannel = 'inApp' | 'email';
 
 export interface NotificationSettings {
-    collaborationRequests: NotificationChannel[];
-    collaborationUpdates: NotificationChannel[];
-    commentsOnMyIdeas: NotificationChannel[];
-    feedbackOnMyIdeas: NotificationChannel[];
-    newConnections: NotificationChannel[];
-    achievementUnlocks: NotificationChannel[];
-    directMessages: NotificationChannel[];
-    messageReactions: NotificationChannel[];
-    doNotDisturb: {
+    collaborationRequests?: NotificationChannel[]; // Make optional
+    collaborationUpdates?: NotificationChannel[];
+    commentsOnMyIdeas?: NotificationChannel[];
+    feedbackOnMyIdeas?: NotificationChannel[];
+    newConnections?: NotificationChannel[];
+    achievementUnlocks?: NotificationChannel[];
+    directMessages?: NotificationChannel[];
+    messageReactions?: NotificationChannel[];
+    doNotDisturb?: { // Make optional
         enabled: boolean;
-        startTime: string; // "HH:mm" format
-        endTime: string; // "HH:mm" format
+        startTime: string;
+        endTime: string;
     };
 }
 
@@ -318,17 +383,39 @@ export interface Achievement {
 }
 
 export interface UserAchievement {
-  achievementId: AchievementId;
-  progress: number;
-  unlockedAt: string | null;
+  achievementId: AchievementId; // Use this one
+  achievement_id?: AchievementId; // Add if backend sends snake_case
+  progress?: number;
+  unlockedAt: string | null; // Use this one
+  unlocked_at?: string | null; // Add if backend sends snake_case
+  // Add fields returned by backend query
+  id?: string;
+  userId?: string;
+  user_id?: string; // Add if backend sends snake_case
 }
 
+
 export interface AchievementPost {
-    postId: string;
+    postId: string; // Use this one
+    id?: string; // Add if backend sends id
     userId: string;
-    achievementId: AchievementId;
+    achievementId: AchievementId; // Use this one
+    achievement_id?: AchievementId; // Add if backend sends this
     createdAt: string;
+    created_at?: string; // Add if backend sends this
+    // Add fields returned by backend query
+    title?: string;
+    description?: string;
+    achievementType?: string; // Use this one
+    achievement_type?: string; // Add if backend sends this
+    skillsGained?: string[]; // Use this one
+    skills_gained?: string[]; // Add if backend sends this
+    updatedAt?: string;
+    updated_at?: string; // Add if backend sends this
+    isPublic?: boolean; // Added based on backend query
+    is_public?: boolean; // Add if backend sends this
 }
+
 
 // --- IDEA TEMPLATE TYPES ---
 

@@ -1,7 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { User, Page, NotificationSettings as NotificationSettingsType, NotificationChannel } from '../types';
-// FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
+
+// --- ADD THESE DEFAULTS ---
+const DEFAULT_DND_SETTINGS: NonNullable<NotificationSettingsType['doNotDisturb']> = {
+    enabled: false,
+    startTime: '22:00',
+    endTime: '08:00',
+};
+
+// Ensure this matches your `types.ts` definition EXACTLY
+const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettingsType = {
+    collaborationRequests: ['inApp'],
+    collaborationUpdates: ['inApp'],
+    commentsOnMyIdeas: ['inApp'],
+    feedbackOnMyIdeas: ['inApp'],
+    newConnections: ['inApp'],
+    achievementUnlocks: ['inApp'],
+    directMessages: ['inApp'],
+    messageReactions: ['inApp'],
+    doNotDisturb: DEFAULT_DND_SETTINGS,
+};
+// --- END OF DEFAULTS ---
+
 
 interface NotificationSettingsProps {
     currentUser: User;
@@ -36,13 +57,22 @@ const SettingsRow: React.FC<{
 );
 
 export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ currentUser, setCurrentUser, setPage }) => {
-    const [settings, setSettings] = useState<NotificationSettingsType>(currentUser.notificationSettings);
+    // --- FIX: Initialize state correctly using defaults ---
+    const [settings, setSettings] = useState<NotificationSettingsType>(
+        () => currentUser.notificationSettings ?? { ...DEFAULT_NOTIFICATION_SETTINGS } // Use function form for lazy init
+    );
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);
 
+    // --- FIX: Update state correctly in useEffect ---
     useEffect(() => {
-        setSettings(currentUser.notificationSettings);
-    }, [currentUser]);
+        // Only update if currentUser changes AND the settings are different
+        // This prevents infinite loops if setCurrentUser causes re-renders
+        const userSettings = currentUser.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS;
+        if (JSON.stringify(settings) !== JSON.stringify(userSettings)) {
+            setSettings(userSettings);
+        }
+    }, [currentUser.notificationSettings]); // Depend only on the relevant part
 
     const handleChannelChange = (
         category: keyof Omit<NotificationSettingsType, 'doNotDisturb'>,
@@ -50,7 +80,8 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ curr
         checked: boolean
     ) => {
         setSettings(prev => {
-            const currentChannels = prev[category] || [];
+            // Ensure category exists or default to empty array
+            const currentChannels = prev[category] ?? [];
             const newChannels = checked
                 ? [...currentChannels, channel]
                 : currentChannels.filter(c => c !== channel);
@@ -58,20 +89,29 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ curr
         });
     };
 
-    const handleDndChange = (key: keyof NotificationSettingsType['doNotDisturb'], value: any) => {
+    // --- FIX: Correctly update DND settings, handling potential undefined ---
+    const handleDndChange = (
+        key: keyof typeof DEFAULT_DND_SETTINGS, // Key must be valid for DND settings
+        value: boolean | string
+    ) => {
         setSettings(prev => ({
             ...prev,
-            doNotDisturb: { ...prev.doNotDisturb, [key]: value }
+            doNotDisturb: {
+                ...(prev.doNotDisturb ?? DEFAULT_DND_SETTINGS), // Ensure doNotDisturb object exists
+                [key]: value,
+            },
         }));
     };
+
 
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            // FIX: Removed currentUser.userId. Backend gets this from token.
             const updatedUser = await api.updateNotificationSettings(settings);
             if (updatedUser) {
-                setCurrentUser(updatedUser);
+                setCurrentUser(updatedUser); // Update the user context/state globally
+                // Update local state ONLY IF necessary, or rely on useEffect
+                setSettings(updatedUser.notificationSettings ?? DEFAULT_NOTIFICATION_SETTINGS);
                 setSaved(true);
                 setTimeout(() => setSaved(false), 2000);
             } else {
@@ -95,7 +135,13 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ curr
         { key: 'directMessages', label: 'Direct Messages', description: 'When you receive a new direct message.' },
         { key: 'messageReactions', label: 'Message Reactions', description: 'When someone reacts to your message.' },
     ];
-    
+
+    // --- FIX: Use safe access with defaults for rendering ---
+    const dndEnabled = settings.doNotDisturb?.enabled ?? false;
+    const dndStartTime = settings.doNotDisturb?.startTime ?? DEFAULT_DND_SETTINGS.startTime;
+    const dndEndTime = settings.doNotDisturb?.endTime ?? DEFAULT_DND_SETTINGS.endTime;
+
+
     return (
         <div className="bg-[#0A0A0F] min-h-screen">
             <header className="bg-[#1A1A24]/80 backdrop-blur-lg border-b border-white/10 sticky top-0 z-10">
@@ -120,14 +166,16 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ curr
                                 <div className="flex flex-col items-center">
                                     <label className="text-xs font-medium text-gray-400">In-App</label>
                                     <ToggleSwitch
-                                        checked={(settings[key] || []).includes('inApp')}
+                                        // Use safe access
+                                        checked={(settings[key] ?? []).includes('inApp')}
                                         onChange={(checked) => handleChannelChange(key, 'inApp', checked)}
                                     />
                                 </div>
                                 <div className="flex flex-col items-center">
                                     <label className="text-xs font-medium text-gray-400">Email</label>
                                     <ToggleSwitch
-                                        checked={(settings[key] || []).includes('email')}
+                                        // Use safe access
+                                        checked={(settings[key] ?? []).includes('email')}
                                         onChange={(checked) => handleChannelChange(key, 'email', checked)}
                                     />
                                 </div>
@@ -139,24 +187,28 @@ export const NotificationSettings: React.FC<NotificationSettingsProps> = ({ curr
                 <div className="max-w-3xl mx-auto bg-[#1A1A24] rounded-2xl shadow-2xl border border-white/10 mt-8">
                      <div className="divide-y divide-white/10 px-6">
                         <SettingsRow label="Do Not Disturb" description="Temporarily mute all notifications during specific hours.">
-                            <ToggleSwitch checked={settings.doNotDisturb.enabled} onChange={(checked) => handleDndChange('enabled', checked)} />
+                            {/* --- FIX: Use safe access variable --- */}
+                            <ToggleSwitch checked={dndEnabled} onChange={(checked) => handleDndChange('enabled', checked)} />
                         </SettingsRow>
-                         {settings.doNotDisturb.enabled && (
+                         {/* --- FIX: Use safe access variable --- */}
+                         {dndEnabled && (
                             <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4 items-center">
                                 <div className="text-sm font-medium text-white">
                                     Quiet Hours
                                 </div>
                                  <div className="mt-2 sm:mt-0 sm:col-span-2 flex items-center space-x-4 justify-end">
-                                      <input 
-                                        type="time" 
-                                        value={settings.doNotDisturb.startTime}
+                                      <input
+                                        type="time"
+                                        // --- FIX: Use safe access variable ---
+                                        value={dndStartTime}
                                         onChange={e => handleDndChange('startTime', e.target.value)}
                                         className="bg-[#252532] border-2 border-[#374151] rounded-lg p-2 text-white"
                                       />
                                       <span className="text-gray-400">to</span>
-                                      <input 
-                                        type="time" 
-                                        value={settings.doNotDisturb.endTime}
+                                      <input
+                                        type="time"
+                                         // --- FIX: Use safe access variable ---
+                                        value={dndEndTime}
                                         onChange={e => handleDndChange('endTime', e.target.value)}
                                         className="bg-[#252532] border-2 border-[#374151] rounded-lg p-2 text-white"
                                       />

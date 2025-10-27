@@ -1,7 +1,9 @@
+// C:\Users\hemant\Downloads\synapse\src\components\Header.tsx
 import React from 'react';
 import { User, Page } from '../types';
 import { NotificationBell } from './NotificationBell';
-import { PlusIcon, SunIcon, MoonIcon } from './icons';
+// Ensure LogOutIcon is imported correctly now that it exists in icons.tsx
+import { PlusIcon, SunIcon, MoonIcon, LogOutIcon } from './icons';
 
 interface HeaderProps {
     currentUser: User | null;
@@ -16,12 +18,11 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ currentUser, isGuest, setPage, setCurrentUser, onGuestAction, onNavigateToLogin, theme, toggleTheme }) => {
     const handleLogout = () => {
-        // Clear local storage on logout
         localStorage.removeItem('authToken');
         localStorage.removeItem('currentUser');
         setCurrentUser(null);
-        // We might want to force a page reload or navigate to login
-        setPage('feed'); 
+        setPage('feed'); // Navigate to feed after logout
+        // Optionally, force reload if needed: window.location.reload();
     };
 
     const handleNewIdeaClick = () => {
@@ -31,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, isGuest, setPage, s
             setPage('newIdea');
         }
     };
-    
+
     return (
         <header className="fixed top-0 left-0 right-0 bg-white/60 dark:bg-[#0A0A0F]/60 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 z-50">
             <div className="container mx-auto px-4">
@@ -41,8 +42,8 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, isGuest, setPage, s
                             Synapse
                         </button>
                     </div>
-                    <div className="flex items-center space-x-4">
-                         <button onClick={handleNewIdeaClick} className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transform transition-transform hover:-translate-y-0.5 active:scale-95">
+                    <div className="flex items-center space-x-2 sm:space-x-4">
+                         <button onClick={handleNewIdeaClick} className="flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transform transition-transform hover:-translate-y-0.5 active:scale-95">
                             <PlusIcon className="h-5 w-5" />
                             <span className="hidden sm:inline">New Idea</span>
                         </button>
@@ -66,14 +67,17 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, isGuest, setPage, s
                             </div>
                         ) : (
                            <>
-                                {/* FIX: Removed userId prop, it's no longer needed */}
                                 <NotificationBell setPage={setPage} />
-                                <div className="relative">
+                                <div className="relative group">
                                     <button onClick={() => setPage('profile', currentUser.userId)} className="flex items-center transition-transform hover:scale-105" aria-label="View Profile">
-                                        <img className="h-8 w-8 rounded-full ring-2 ring-transparent hover:ring-indigo-500 transition-all" src={currentUser.avatarUrl} alt={currentUser.name} />
+                                         {/* --- FIX: Updated path for GitHub Pages subfolder --- */}
+                                        <img className="h-8 w-8 rounded-full ring-2 ring-transparent group-hover:ring-indigo-500 transition-all object-cover" src={currentUser.avatarUrl || '/Synapse/default-avatar.png'} alt={currentUser.displayName || currentUser.username} />
                                     </button>
                                 </div>
-                                 <button onClick={handleLogout} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hidden sm:inline transition-colors">Logout</button>
+                                 <button onClick={handleLogout} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors" aria-label="Logout">
+                                     {/* Ensure LogOutIcon is used here */}
+                                     <LogOutIcon className="w-5 h-5"/>
+                                 </button>
                            </>
                         )}
                     </div>

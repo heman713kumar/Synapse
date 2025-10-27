@@ -1,7 +1,8 @@
+// C:\Users\hemant\Downloads\synapse\src\components\DiscussionForum.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Idea, User, ForumMessage, Page } from '../types';
 import api from '../services/backendApiService';
-import { SendIcon, UserPlusIcon, UserMinusIcon, PinIcon, TrashIcon, ChevronDownIcon } from './icons';
+import { SendIcon, UserPlusIcon, UserMinusIcon, PinIcon, TrashIcon, ChevronDownIcon, LoaderIcon } from './icons';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface DiscussionForumProps {
@@ -36,14 +37,17 @@ const MemberList: React.FC<{
                     {members.map(member => (
                         <li key={member.userId} className="flex items-center justify-between group">
                             <button onClick={() => setPage('profile', member.userId)} className="flex items-center space-x-3 text-left">
-                                <img src={member.avatarUrl} alt={member.name} className="w-8 h-8 rounded-full" />
+                                {/* --- (FIXED) Use displayName --- */}
+                                <img src={member.avatarUrl || '/default-avatar.png'} alt={member.displayName || member.username} className="w-8 h-8 rounded-full object-cover" />
                                 <div className="flex-1">
-                                    <span className="text-gray-300 group-hover:text-indigo-400">{member.name}</span>
+                                     {/* --- (FIXED) Use displayName --- */}
+                                    <span className="text-gray-300 group-hover:text-indigo-400">{member.displayName || member.username}</span>
                                     {member.userId === idea.ownerId && <span className="block text-xs text-indigo-400">Owner</span>}
                                 </div>
                             </button>
                             {isOwner && member.userId !== currentUser.userId && (
-                                <button onClick={() => onRemoveMember(member.userId, member.name)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition-opacity">
+                                 /* --- (FIXED) Use displayName --- */
+                                <button onClick={() => onRemoveMember(member.userId, member.displayName || member.username || 'User')} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition-opacity">
                                     <UserMinusIcon className="w-5 h-5"/>
                                 </button>
                             )}
@@ -59,7 +63,7 @@ const MemberList: React.FC<{
                             type="text"
                             value={addUserId}
                             onChange={(e) => setAddUserId(e.target.value)}
-                            placeholder="Enter user ID"
+                            placeholder="Enter user ID or username"
                             className="flex-1 bg-[#252532] border-2 border-[#374151] rounded-lg py-1 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                         <button onClick={handleAdd} className="bg-indigo-600 p-2 rounded-lg hover:bg-indigo-700">
@@ -80,12 +84,14 @@ const MessageCard: React.FC<{
     onDelete: (id: string) => void;
 }> = ({ msg, sender, isOwner, onPin, onDelete }) => {
     return (
-        <div className="group flex items-start gap-3 p-3 rounded-lg transition-colors">
-            <img src={sender?.avatarUrl} alt={sender?.name} className="w-10 h-10 rounded-full mt-1 flex-shrink-0" />
+        <div className="group flex items-start gap-3 p-3 rounded-lg transition-colors hover:bg-white/5">
+              {/* --- (FIXED) Use displayName --- */}
+            <img src={sender?.avatarUrl || '/default-avatar.png'} alt={sender?.displayName || 'User'} className="w-10 h-10 rounded-full mt-1 flex-shrink-0 object-cover" />
             <div className="flex-1">
                 <div className="flex items-center justify-between">
                     <div className="flex items-baseline space-x-2">
-                        <span className="font-bold text-indigo-300">{sender?.name}</span>
+                          {/* --- (FIXED) Use displayName --- */}
+                        <span className="font-bold text-indigo-300">{sender?.displayName || 'User'}</span>
                         <span className="text-xs text-gray-500">{new Date(msg.createdAt).toLocaleString()}</span>
                     </div>
                     {isOwner && (
@@ -124,16 +130,16 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
         try {
             const ideaData = await api.getIdeaById(ideaId);
             if (ideaData) {
-                if (!ideaData.forumMembers.includes(currentUser.userId)) {
+                 if (!(ideaData.forumMembers || []).includes(currentUser.userId)) {
                     alert("You don't have access to this forum.");
                     setPage('feed');
                     return;
                 }
                 setIdea(ideaData);
-                const memberData = await Promise.all(ideaData.forumMembers.map(id => api.getUserById(id)));
+                const memberData = await Promise.all((ideaData.forumMembers || []).map(id => api.getUserById(id)));
                 setMembers(memberData.filter((u): u is User => u !== null));
                 const messageData = await api.getForumMessages(ideaId);
-                setMessages(messageData);
+                setMessages(messageData || []);
             } else {
                  setPage('feed');
             }
@@ -148,7 +154,7 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
         setIsLoading(true);
         fetchData().finally(() => setIsLoading(false));
     }, [fetchData]);
-    
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -165,10 +171,11 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
             alert("Failed to send message.");
         }
     };
-    
+
     const handleAddMember = async (userId: string) => {
+        if (!idea) return;
         try {
-            const response = await api.addForumMember(ideaId, userId);
+            const response = await api.addForumMember(idea.ideaId, userId);
             if (response.success) {
                 fetchData();
             } else {
@@ -181,13 +188,14 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
     };
 
     const handleRemoveMember = (userId: string, userName: string) => {
+        if (!idea) return;
         setConfirmationState({
             title: `Remove ${userName}?`,
             message: `Are you sure you want to remove ${userName} from the forum? This action cannot be undone.`,
             confirmText: 'Remove',
             onConfirm: async () => {
                 try {
-                    const response = await api.removeForumMember(ideaId, userId);
+                    const response = await api.removeForumMember(idea.ideaId, userId);
                     if (response.success) {
                         fetchData();
                     } else {
@@ -211,7 +219,7 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
             onConfirm: async () => {
                 try {
                     await api.deleteForumMessage(messageId);
-                    fetchData();
+                    setMessages(prev => prev.filter(msg => msg.messageId !== messageId));
                 } catch (error) {
                     console.error("Failed to delete message:", error);
                     alert('Failed to delete message.');
@@ -232,11 +240,11 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
         }
     };
 
-    if (isLoading || !idea) return <div className="flex items-center justify-center h-screen">Loading forum...</div>;
-    
+    if (isLoading || !idea) return <div className="flex items-center justify-center h-screen"><LoaderIcon className="w-8 h-8 animate-spin text-indigo-400"/></div>;
+
     const isOwner = currentUser.userId === idea.ownerId;
-    const pinnedMessages = messages.filter(m => m.isPinned);
-    const regularMessages = messages.filter(m => !m.isPinned);
+    const pinnedMessages = (messages || []).filter(m => m.isPinned);
+    const regularMessages = (messages || []).filter(m => !m.isPinned);
 
     return (
         <>
@@ -249,11 +257,14 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
                         <h1 className="text-xl font-bold text-white">Discussion Forum</h1>
                         <p className="text-sm text-gradient">{idea.title}</p>
                     </div>
-                    <div className="w-36"></div>
+                    <div className="w-36"></div> {/* Spacer */}
                 </header>
                 <div className="flex-grow flex min-h-0">
                     <main className="flex-1 flex flex-col">
                         <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+                             {messages.length === 0 && (
+                                <p className="text-center text-gray-500">No messages in this forum yet. Start the discussion!</p>
+                             )}
                             {pinnedMessages.length > 0 && (
                                 <div className="border border-indigo-500/30 rounded-lg mb-4 bg-indigo-900/10">
                                     <button onClick={() => setIsPinnedVisible(!isPinnedVisible)} className="w-full flex justify-between items-center p-3 bg-indigo-900/20 rounded-t-lg">
@@ -264,7 +275,7 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
                                         <ChevronDownIcon className={`w-5 h-5 text-indigo-400 transition-transform ${isPinnedVisible ? '' : '-rotate-90'}`} />
                                     </button>
                                     {isPinnedVisible && (
-                                        <div className="py-1 px-2">
+                                        <div className="py-1 px-2 divide-y divide-white/5">
                                             {pinnedMessages.map(msg => (
                                                 <MessageCard
                                                     key={msg.messageId}
@@ -311,7 +322,7 @@ export const DiscussionForum: React.FC<DiscussionForumProps> = ({ ideaId, curren
                         </div>
                     </main>
                     <aside className="w-80 p-4 flex-shrink-0 border-l border-white/10 hidden md:block">
-                        <MemberList 
+                        <MemberList
                             idea={idea}
                             members={members}
                             currentUser={currentUser}

@@ -84,7 +84,9 @@ const BarChart: React.FC<{ data: { label: string; value: number }[] }> = ({ data
 };
 
 const DonutChart: React.FC<{ data: { skill: string; count: number }[] }> = ({ data }) => {
-    const total = data.reduce((sum, item) => sum + item.count, 0);
+    // --- (FIX 1/4) Add safety check for data array ---
+    const chartData = data || [];
+    const total = chartData.reduce((sum, item) => sum + item.count, 0);
     if (total === 0) return <p className="text-gray-500 flex items-center justify-center h-full">No collaborator data yet.</p>;
 
     const colors = ['#6366F1', '#8B5CF6', '#A78BFA', '#38BDF8', '#22D3EE'];
@@ -94,7 +96,7 @@ const DonutChart: React.FC<{ data: { skill: string; count: number }[] }> = ({ da
         <div className="w-full h-full flex items-center space-x-6">
             <div className="w-1/2 h-full relative">
                  <svg viewBox="0 0 36 36" className="w-full h-full">
-                    {data.map((item, index) => {
+                    {chartData.map((item, index) => {
                         const percentage = (item.count / total) * 100;
                         if (percentage === 0) return null; // Don't render 0% slices
                         const strokeDasharray = `${percentage} ${100 - percentage}`;
@@ -118,7 +120,7 @@ const DonutChart: React.FC<{ data: { skill: string; count: number }[] }> = ({ da
                  </svg>
             </div>
             <div className="w-1/2 space-y-2">
-                {data.map((item, index) => (
+                {chartData.map((item, index) => (
                     <div key={item.skill} className="flex items-center text-sm">
                         <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: colors[index % colors.length] }}/>
                         <span className="text-gray-300">{item.skill}</span>
@@ -152,7 +154,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ ideaId, 
                     api.getAnalyticsForIdea(ideaId), // Assumes this exists in backendApiService
                 ]);
 
-                if (ideaData && (ideaData.ownerId !== currentUser.userId && !ideaData.collaborators.includes(currentUser.userId))) {
+                // --- (FIX 2/4) Add safety check for collaborators array ---
+                if (ideaData && (ideaData.ownerId !== currentUser.userId && !(ideaData.collaborators || []).includes(currentUser.userId))) {
                     alert("You don't have permission to view these analytics.");
                     setPage('ideaDetail', ideaId);
                     return;
@@ -194,7 +197,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ ideaId, 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <StatCard icon={EyeIcon} title="Total Views" value={analytics.totalViews.toLocaleString()} colorClass="bg-blue-500" />
                     <StatCard icon={TrendingUpIcon} title="Engagement Rate" value={`${analytics.engagementRate.toFixed(1)}%`} colorClass="bg-emerald-500" />
-                    <StatCard icon={UsersIcon} title="Collaborators" value={idea.collaborators.length} colorClass="bg-purple-500" />
+                    {/* --- (FIX 3/4) Add safety check for collaborators array --- */}
+                    <StatCard icon={UsersIcon} title="Collaborators" value={(idea.collaborators || []).length} colorClass="bg-purple-500" />
                     <StatCard icon={MapPinIcon} title="Conversion Rate" value={`${analytics.collaborationConversionRate.toFixed(1)}%`} colorClass="bg-orange-500" />
                 </div>
 
@@ -209,11 +213,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ ideaId, 
                     </ChartContainer>
 
                     <ChartContainer title="Top 5 Regions by Views">
-                         <BarChart data={analytics.geography.slice(0, 5).map(g => ({ label: g.region, value: g.views }))} />
+                         {/* --- (FIX 4/4) Add safety check for geography and trafficSources arrays --- */}
+                         <BarChart data={(analytics.geography || []).slice(0, 5).map(g => ({ label: g.region, value: g.views }))} />
                     </ChartContainer>
 
                     <ChartContainer title="Traffic Sources">
-                        <BarChart data={analytics.trafficSources.map(s => ({ label: s.source, value: s.visits }))} />
+                        <BarChart data={(analytics.trafficSources || []).map(s => ({ label: s.source, value: s.visits }))} />
                     </ChartContainer>
                 </div>
             </div>

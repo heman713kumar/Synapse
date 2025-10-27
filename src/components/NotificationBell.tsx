@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Notification, Page } from '../types';
-// FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
 import { BellIcon } from './icons';
 
 interface NotificationBellProps {
-    // FIX: Removed userId, it's not needed as backend gets it from token
-    setPage: (page: Page) => void;
+    setPage: (page: Page, id?: string) => void; // Allow optional ID
 }
 
 export const NotificationBell: React.FC<NotificationBellProps> = ({ setPage }) => {
@@ -16,21 +14,19 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ setPage }) =
     useEffect(() => {
         const fetchNotifications = async () => {
             try {
-                // FIX: Removed userId. Backend gets this from token.
                 const data = await api.getNotificationsByUserId();
-                setNotifications(data);
+                // Sort by date descending, ensure createdAt exists
+                setNotifications((data || []).sort((a, b) =>
+                    new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+                ));
             } catch (error) {
                 console.error("Failed to fetch notifications:", error);
-                // Don't show an alert for this, just log it.
             }
         };
-        
+
         fetchNotifications();
-        
-        // Optional: Set up polling to refresh the bell icon
-        const intervalId = setInterval(fetchNotifications, 60000); // Poll every 60 seconds
-        
-        return () => clearInterval(intervalId); // Clean up interval on unmount
+        const intervalId = setInterval(fetchNotifications, 60000);
+        return () => clearInterval(intervalId);
     }, []);
 
     const unreadCount = notifications.filter(n => !n.read).length;
@@ -47,14 +43,20 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ setPage }) =
                 <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-xl shadow-lg bg-white/80 dark:bg-[#1A1A24]/80 backdrop-blur-lg border border-gray-200 dark:border-white/10 focus:outline-none z-50">
                     <div className="py-1">
                         <div className="px-4 py-2 text-sm text-gray-900 dark:text-white font-semibold border-b border-gray-200 dark:border-white/10">Notifications</div>
-                        <div className="max-h-60 overflow-y-auto">
+                        <div className="max-h-60 overflow-y-auto scrollbar-thin">
                             {notifications.length > 0 ? (
                                 notifications.slice(0, 5).map(notification => (
-                                    <div 
-                                        key={notification.id} 
-                                        // FIX: Make items clickable to navigate
+                                    <div
+                                        key={notification.id}
                                         onClick={() => {
-                                            setPage(notification.link.page);
+                                            // --- FIX: Check if link exists before navigating ---
+                                            if (notification.link) {
+                                                setPage(notification.link.page, notification.link.id); // Pass ID
+                                            } else {
+                                                console.warn("Notification link missing:", notification);
+                                                setPage('notifications'); // Fallback: go to notifications page
+                                            }
+                                            // TODO: Add API call here to mark this specific notification as read
                                             setIsOpen(false);
                                         }}
                                         className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5 border-b border-gray-100 dark:border-white/5 cursor-pointer"

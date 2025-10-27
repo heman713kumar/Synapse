@@ -15,8 +15,10 @@ type SortOrder = 'relevant' | 'trending' | 'likes' | 'newest' | 'collaboration' 
 
 const calculateRelevanceScore = (idea: Idea, user: User | null): number => {
     if (!user) return 0;
-    const userSkills = new Set(user.skills.map(s => s.skillName));
-    const userInterests = new Set(user.interests);
+    // --- (FIX 1/3) Add safety check for skills array ---
+    const userSkills = new Set((user.skills || []).map(s => s.skillName));
+    // --- (FIX 2/3) Add safety check for interests array ---
+    const userInterests = new Set(user.interests || []);
 
     let relevanceScore = 0;
     // Strong boost for matching required skills with user's skills
@@ -54,13 +56,15 @@ const calculateCollaborationScore = (idea: Idea): number => {
     collabScore += (idea.requiredSkills || []).length * 5;
     collabScore += (idea.commentsCount || 0) * 2;
 
+    // Use safe access for collaborators length
     if ((idea.collaborators || []).length === 0) {
         collabScore += 25;
     } else {
-        collabScore += 10 / (idea.collaborators.length || 1);
+        collabScore += 10 / ((idea.collaborators || []).length || 1); // Ensure length is at least 1 if array exists
     }
 
-    if (idea.questionnaire?.skillsLooking?.trim().length > 5) {
+    // --- FIX: Add parentheses here ---
+    if ((idea.questionnaire?.skillsLooking ?? '').trim().length > 5) {
         collabScore += 15;
     }
 
@@ -70,7 +74,8 @@ const calculateCollaborationScore = (idea: Idea): number => {
 const calculateSkillMatchScore = (idea: Idea, user: User | null): number => {
     if (!user || !user.skills || user.skills.length === 0) return 0;
     
-    const userSkills = new Set(user.skills.map(s => s.skillName));
+    // --- (FIX 3/3) Add safety check for skills array ---
+    const userSkills = new Set((user.skills || []).map(s => s.skillName));
     let matchCount = 0;
 
     (idea.requiredSkills || []).forEach(skill => {
@@ -94,8 +99,11 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<SortOrder>(currentUser ? 'relevant' : 'trending'); // Default to relevant if logged in
+    
     const [filters, setFilters] = useState(() => {
-        const userPrimaryInterest = currentUser?.interests.find(i => SECTORS.includes(i));
+        // --- DEFINITIVE FIX: Add null/undefined check (|| []) to interests ---
+        const userInterests = currentUser?.interests || []; 
+        const userPrimaryInterest = userInterests.find(i => SECTORS.includes(i));
         return {
             sector: userPrimaryInterest || '',
             region: '',
