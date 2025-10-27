@@ -6,25 +6,19 @@ const { Pool } = pg;
 
 dotenv.config();
 
-// Parse the connection string
-const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:Mahadev@shiva6563@db.fsgcdhshhsbmodspyggn.supabase.co:5432/postgres';
+// --- FIX 1: Ensure the hardcoded fallback includes the required sslmode=disable ---
+const defaultDbUrl = 'postgresql://postgres:Mahadev@shiva6563@db.fsgcdhshhsbmodspyggn.supabase.co:5432/postgres?sslmode=disable';
 
+const dbUrl = process.env.DATABASE_URL || defaultDbUrl;
+
+// --- Debugging output (kept for analysis) ---
 console.log('🔧 Database Configuration:');
 console.log('DATABASE_URL exists:', !!dbUrl);
 
 // Hide password in logs for security
 const safeUrl = dbUrl.replace(/:[^:]*@/, ':****@');
 console.log('Database URL:', safeUrl);
-
-try {
-    const dbConfig = parse(dbUrl);
-    console.log('Database Host:', dbConfig.host);
-    console.log('Database Port:', dbConfig.port);
-    console.log('Database Name:', dbConfig.database);
-    console.log('Database User:', dbConfig.user);
-} catch (error) {
-    console.error('❌ Failed to parse DATABASE_URL:', error);
-}
+// --- End Debugging output ---
 
 let poolConfig: any = {
     max: 20,
@@ -35,17 +29,30 @@ let poolConfig: any = {
 try {
     const dbConfig = parse(dbUrl);
     
+    // FIX 2: Explicitly cast dbConfig.query to string to resolve TS2345 error
+    const queryAsString = dbConfig.query as string; 
+    const urlParams = new URLSearchParams(queryAsString);
+    const sslMode = urlParams.get('sslmode');
+
+    // Determine SSL configuration
+    // Supabase requires SSL, but local testing requires it to be disabled.
+    // The safest way is to check for the explicit 'disable' flag.
+    const sslEnabled = sslMode !== 'disable';
+    
+    // Use the parsed values from the URL
     poolConfig = {
         ...poolConfig,
         user: dbConfig.user,
         password: dbConfig.password,
-        host: dbConfig.host || 'localhost',
+        host: dbConfig.host,
         port: dbConfig.port ? parseInt(dbConfig.port, 10) : 5432,
-        database: dbConfig.database || 'postgres',
-        ssl: { rejectUnauthorized: false }, // Supabase requires SSL
+        database: dbConfig.database,
+        // FIX 3: Set SSL based on flag. If enabled, use Supabase setting. If disabled, use false.
+        ssl: sslEnabled ? { rejectUnauthorized: false } : false,
     };
-
-    console.log(`🔗 Final Database Config - Host: ${poolConfig.host}, Port: ${poolConfig.port}`);
+    
+    // Log the actual config being used
+    console.log(`🔗 Final Database Config - Host: ${poolConfig.host}, Port: ${poolConfig.port}, SSL: ${sslEnabled ? 'Enabled' : 'Disabled'}`);
     
 } catch (parseError) {
     console.error('❌ Failed to parse DATABASE_URL:', parseError);
