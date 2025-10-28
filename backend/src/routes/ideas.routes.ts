@@ -437,4 +437,65 @@ router.get('/:id/blockchain-records', async (req: Request, res: Response, next: 
     }
 });
 
+// --- NEW IDEA BOARD AND NODE COMMENT ROUTES (Placeholder Implementation) ---
+
+// PUT /api/ideas/:id/board - Update idea board
+router.put('/:id/board', authenticateToken, async (req: Request, res: Response) => {
+    // Front-end sends: nodes array. We return the updated idea object.
+    const { id } = req.params;
+    console.log(`[PL] Updating Idea Board for ${id}`);
+    
+    // NOTE: This assumes an existing idea fetch function/structure exists
+    // In a real app, this would update the idea's 'board_nodes' column.
+    
+    // FIX: Return a mocked Idea object structure (needs to align with your Idea type)
+    res.json({
+        ideaId: id,
+        title: "Placeholder Idea Title", // Mock data
+        summary: "Board update successful.",
+        // Add minimal required fields to pass frontend checks
+        nodes: req.body.nodes || [],
+        version: 1,
+        // The frontend requires the idea object, so returning the updated nodes is sufficient for now
+    });
+});
+
+// GET /api/ideas/:id/board/versions - Get board versions
+router.get('/:id/board/versions', authenticateToken, (req: Request, res: Response) => {
+    console.log(`[PL] Fetching Board Versions for ${req.params.id}`);
+    // FIX: Return an empty array of versions (frontend expects an array)
+    res.json([]); 
+});
+
+// POST /api/ideas/:id/board/versions - Save board version
+router.post('/:id/board/versions', authenticateToken, (req: Request, res: Response) => {
+    console.log(`[PL] Saving Board Version for ${req.params.id}`);
+    // FIX: Return a minimal version object upon success
+    res.status(201).json({
+        versionId: 'mock-v-' + Date.now(),
+        ideaId: req.params.id,
+        name: req.body.name || 'Saved Version',
+        createdAt: new Date().toISOString()
+    });
+});
+
+// POST /api/ideas/:id/board/versions/:versionId/revert - Revert to version
+router.post('/:id/board/versions/:versionId/revert', authenticateToken, (req: Request, res: Response) => {
+    console.log(`[PL] Reverting Board Version ${req.params.versionId}`);
+    // FIX: Return the basic idea/board data structure (nodes array)
+    res.json({
+        ideaId: req.params.id,
+        nodes: [], // Return empty nodes for simplicity
+    });
+});
+
+// GET /api/nodes/:nodeId/comments - Get node comments
+router.get('/nodes/:nodeId/comments', authenticateToken, (req: Request, res: Response) => {
+    console.log(`[PL] Fetching Node Comments for ${req.params.nodeId}`);
+    // FIX: Return an empty array of comments
+    res.json([]); 
+});
+
+// --- END NEW IDEA BOARD AND NODE COMMENT ROUTES ---
+
 export default router;
