@@ -9,6 +9,7 @@ import {
 
 // --- FIX 1: Set API_BASE_URL to the server root (no /api suffix) ---
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://synapse-backend-api.onrender.com';
+console.log('🔍 API_BASE_URL:', API_BASE_URL); // Debug line to verify the URL
 
 // Internal variable to hold the token, initialized from localStorage
 let authToken: string | null = localStorage.getItem('authToken');
@@ -227,7 +228,8 @@ const api = {
     }),
 
   // --- Feed ---
-  getFeedItems: (): Promise<FeedItem[]> => apiRequest<FeedItem[]>('/feed'),
+  // FIX: Added missing '/api' prefix to feed endpoint
+  getFeedItems: (): Promise<FeedItem[]> => apiRequest<FeedItem[]>('/api/feed'),
 
   // --- Comments & Feedback ---
   getCommentsByIdeaId: (ideaId: string): Promise<Comment[]> => apiRequest<Comment[]>(`/api/ideas/${ideaId}/comments`),
