@@ -18,17 +18,34 @@ import ideasRoutes from './routes/ideas.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import aiRoutes from './routes/ai.routes.js';
-import feedRoutes from './routes/feed.routes.js'; // ← IMPORT IS HERE
+import feedRoutes from './routes/feed.routes.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// CORS Configuration - FIXED
+const allowedOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',') 
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
+console.log('🔧 CORS Allowed Origins:', allowedOrigins);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.log('🚫 CORS Blocked Origin:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -65,7 +82,7 @@ app.use('/api/ideas', ideasRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/feed', feedRoutes); // ← ROUTE IS REGISTERED HERE
+app.use('/api/feed', feedRoutes);
 
 // Basic API info
 app.get('/api', (req: Request, res: Response) => {
@@ -79,7 +96,7 @@ app.get('/api', (req: Request, res: Response) => {
           chat: '/api/chat',
           upload: '/api/upload',
           ai: '/api/ai',
-          feed: '/api/feed' // ← ENDPOINT IS LISTED HERE
+          feed: '/api/feed'
         }
     });
 });
