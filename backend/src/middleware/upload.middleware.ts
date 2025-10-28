@@ -8,10 +8,20 @@ type FileNameCallback = (error: Error | null, filename: string) => void;
 
 // Use process.cwd() instead of __dirname
 const uploadsDir = path.resolve(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-    console.log(`Creating uploads directory: ${uploadsDir}`);
-    fs.mkdirSync(uploadsDir, { recursive: true });
+
+// --- FIX 2: Add robust error handling for directory creation ---
+try {
+    if (!fs.existsSync(uploadsDir)) {
+        console.log(`Creating uploads directory: ${uploadsDir}`);
+        fs.mkdirSync(uploadsDir, { recursive: true });
+        console.log(`✅ Created uploads directory: ${uploadsDir}`);
+    }
+} catch (error) {
+    console.error(`❌ Failed to create uploads directory: ${error}`);
+    // Terminate server startup if upload directory cannot be initialized
+    throw new Error('Upload directory initialization failed');
 }
+// --- END FIX 2 ---
 
 const storage = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb: DestinationCallback) => {
@@ -23,16 +33,28 @@ const storage = multer.diskStorage({
   }
 });
 
+// --- FIX 3: Expanded file type support ---
 const fileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
-  if (file.mimetype.startsWith('image/') ||
-      file.mimetype === 'application/pdf' ||
-      file.mimetype === 'application/msword' ||
-      file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+  const allowedMimes = [
+    // Image types
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    // Document types
+    'application/pdf',
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    // Other common types
+    'text/plain', 
+    'application/json' 
+  ];
+  
+  if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(null, false);
+    // FIX 3: Return explicit error to the client instead of null/false
+    cb(new Error(`File type ${file.mimetype} not allowed`), false);
   }
 };
+// --- END FIX 3 ---
 
 export const upload = multer({
   storage: storage,
@@ -42,10 +64,13 @@ export const upload = multer({
   fileFilter: fileFilter
 });
 
+// --- FIX 1: Placeholder R2 implementation (kept as warning) ---
 export const handleR2Upload = async (file: Express.Multer.File) => {
     console.warn("R2 Upload not fully implemented. Using placeholder URL.");
     const key = file.filename;
     const bucketName = process.env.R2_BUCKET_NAME || 'synapse-files';
-    const url = `https://<your-r2-public-domain-or-account-id>.r2.cloudflarestorage.com/${bucketName}/${key}`;
+    // This URL construction must be updated to the actual R2 endpoint when implemented
+    const url = `https://${bucketName}.<your-r2-endpoint>.r2.cloudflarestorage.com/${key}`;
     return { url, key, size: file.size };
 };
+// --- END FIX 1 ---

@@ -1,49 +1,40 @@
 // C:\Users\hemant\Downloads\synapse\backend\src\types\environment.d.ts
 
-// Keep the NodeJS ProcessEnv interface
 declare namespace NodeJS {
   interface ProcessEnv {
-    // ... (keep existing env variables) ...
+    // Server
     NODE_ENV: 'development' | 'production' | 'test';
-    PORT?: string; // Make PORT optional as it has a default
-    CORS_ORIGIN?: string; // Optional
+    PORT?: string;
+    CORS_ORIGIN?: string;
+    
+    // Database
     DATABASE_URL: string;
-    REDIS_URL?: string; // Optional
+    REDIS_URL?: string;
+    
+    // Authentication
     JWT_SECRET: string;
-    JWT_EXPRES_IN?: string; // Optional
-    R2_ACCOUNT_ID?: string; // Optional
-    R2_ACCESS_KEY_ID?: string; // Optional
-    R2_SECRET_ACCESS_KEY?: string; // Optional
-    R2_BUCKET_NAME?: string; // Optional
-    GEMINI_API_KEY?: string; // Optional
-    GEMINI_MODEL?: string; // Optional
+    JWT_EXPIRES_IN?: string; // ✅ FIXED TYPO (was JWT_EXPRES_IN)
+    
+    // File Storage (R2)
+    R2_ACCOUNT_ID?: string;
+    R2_ACCESS_KEY_ID?: string;
+    R2_SECRET_ACCESS_KEY?: string;
+    R2_BUCKET_NAME?: string;
+    R2_PUBLIC_DOMAIN?: string;
+    
+    // AI Services
+    GEMINI_API_KEY?: string;
+    GEMINI_MODEL?: string;
+    GEMINI_TEMPERATURE?: string;
+    GEMINI_TOP_K?: string;
+    GEMINI_TOP_P?: string;
+    AI_REQUEST_TIMEOUT?: string; // Suggested for AI service timeouts
+    
+    // Uploads
+    UPLOAD_MAX_FILE_SIZE?: string;
+    UPLOAD_ALLOWED_MIMES?: string;
   }
 }
 
-// --- Add Express Request augmentation here ---
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        userId: string;
-        email: string;
-        // Add other fields from your JWT payload if needed
-        iat?: number;
-        exp?: number;
-      };
-    }
-  }
-}
-
-// Keep your interface definitions (User, Idea, ChatMessage)
-// Make sure they align with your actual DB schema from migrate.ts
-export interface User {
-    // ...
-}
-export interface Idea {
-    // ...
-}
-// ... other interfaces ...
-
-// Add this export {}; to ensure it's treated as a module
+// Ensure it is treated as a module, but no other global types are defined here
 export {};

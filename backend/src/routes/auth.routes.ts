@@ -7,6 +7,15 @@ import { authenticateToken } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
+// --- FIX 1: Implement Server Startup Check for JWT Secret ---
+const JWT_SECRET: Secret = process.env.JWT_SECRET || ''; 
+if (!JWT_SECRET) {
+    // CRITICAL: Throw error early if secret is missing to prevent runtime crash
+    console.error("FATAL ERROR: JWT_SECRET environment variable is missing.");
+    process.exit(1);
+}
+// --- END FIX 1 ---
+
 // Helper function to get expiresIn value (number in seconds)
 function getExpiresInSeconds(): number {
     const envValue = process.env.JWT_EXPIRES_IN; // e.g., "7d", "1h", "86400"
@@ -66,7 +75,6 @@ router.post('/register', async (req: Request, res: Response) => {
              throw new Error("User creation failed, no rows returned.");
         }
         const user = result.rows[0];
-        const secret: Secret = process.env.JWT_SECRET || 'your-super-secure-jwt-secret-change-this-in-production-12345';
         
         const options: SignOptions = {
             expiresIn: getExpiresInSeconds() 
@@ -74,7 +82,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
         const token = jwt.sign(
           { userId: user.id, email: user.email },
-          secret,
+          JWT_SECRET, // Use the checked constant
           options
         );
 
@@ -125,15 +133,13 @@ router.post('/login', async (req: Request, res: Response) => {
           return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        const secret: Secret = process.env.JWT_SECRET || 'your-super-secure-jwt-secret-change-this-in-production-12345';
-        
         const options: SignOptions = {
              expiresIn: getExpiresInSeconds()
         };
 
         const token = jwt.sign(
           { userId: user.id, email: user.email },
-          secret,
+          JWT_SECRET, // Use the checked constant
           options
         );
 

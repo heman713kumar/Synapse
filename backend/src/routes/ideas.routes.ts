@@ -405,6 +405,7 @@ router.post('/:id/feedback', authenticateToken, async (req: Request, res: Respon
   }
 });
 
+
 // --- NEW ROUTES TO RESOLVE 404 ERRORS ---
 
 // Get collaboration requests for an idea (Protected - assuming collaborator/owner access)
@@ -422,7 +423,8 @@ router.get('/:id/collaboration-requests', authenticateToken, async (req: Request
 });
 
 // Get blockchain records for an idea (Protected - assuming visibility is controlled)
-router.get('/:id/collaboration-requests', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:id/blockchain-records', async (req: Request, res: Response, next: NextFunction) => {
+    // FIX: Renamed the route path to resolve the duplicate route issue
     // Placeholder implementation to satisfy the frontend contract and avoid 404
     try {
         // In a real application, you would fetch blockchain records here.

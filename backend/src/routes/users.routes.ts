@@ -5,6 +5,47 @@ import { query } from '../db/database.js';
 
 const router: Router = express.Router();
 
+// Define a whitelist of fields that can be updated dynamically
+const ALLOWED_USER_UPDATE_FIELDS = [
+    'skills', 'interests', 'bio', 'display_name', 'avatar_url', 'onboarding_completed', 'user_type'
+];
+
+/**
+ * Safely constructs the SQL UPDATE query string from the request body.
+ * Implements a whitelist to prevent SQL Injection.
+ * @param body Request body object
+ * @returns { updateFields: string[], values: any[] }
+ */
+const getSafeUpdateQuery = (body: any) => {
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    let paramCount = 0;
+
+    // Use a loop over the whitelist to guarantee safety
+    for (const field of ALLOWED_USER_UPDATE_FIELDS) {
+        // Use camelCase to look up in the request body
+        const fieldCamelCase = field.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+        const value = body[fieldCamelCase];
+
+        if (value !== undefined) {
+            paramCount++;
+            updateFields.push(`${field} = $${paramCount}`);
+            
+            // Special handling for array/JSONB fields
+            if (field === 'skills') {
+                values.push(Array.isArray(value) ? JSON.stringify(value) : '[]');
+            } else if (field === 'interests') {
+                values.push(Array.isArray(value) ? value : []);
+            } else {
+                values.push(value);
+            }
+        }
+    }
+    
+    return { updateFields, values, paramCount };
+};
+
+
 // --- GET CURRENT USER ---
 router.get('/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -43,61 +84,22 @@ router.get('/me', authenticateToken, async (req: Request, res: Response, next: N
 router.put('/me', authenticateToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
-    const { skills, interests, bio, displayName, avatarUrl, onboardingCompleted, userType } = req.body;
-
-    const updateFields: string[] = [];
-    const values: any[] = [];
-    let paramCount = 0;
-
-    if (skills !== undefined) {
-      paramCount++;
-      updateFields.push(`skills = $${paramCount}`);
-      // Ensure skills are stringified if they are objects for JSONB
-      values.push(Array.isArray(skills) ? JSON.stringify(skills) : '[]');
-    }
-    if (interests !== undefined) {
-      paramCount++;
-      updateFields.push(`interests = $${paramCount}`);
-      values.push(Array.isArray(interests) ? interests : []); // Assuming interests is text[]
-    }
-    if (bio !== undefined) {
-      paramCount++;
-      updateFields.push(`bio = $${paramCount}`);
-      values.push(bio);
-    }
-    if (displayName !== undefined) {
-      paramCount++;
-      updateFields.push(`display_name = $${paramCount}`);
-      values.push(displayName);
-    }
-    if (avatarUrl !== undefined) {
-      paramCount++;
-      updateFields.push(`avatar_url = $${paramCount}`);
-      values.push(avatarUrl);
-    }
-    if (onboardingCompleted !== undefined) {
-      paramCount++;
-      updateFields.push(`onboarding_completed = $${paramCount}`);
-      values.push(onboardingCompleted);
-    }
-    if (userType !== undefined) {
-      paramCount++;
-      updateFields.push(`user_type = $${paramCount}`);
-      values.push(userType);
-    }
+    const { updateFields, values, paramCount } = getSafeUpdateQuery(req.body);
 
     if (updateFields.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
-    paramCount++;
-    updateFields.push(`updated_at = $${paramCount}`);
+    // Add updated_at
+    updateFields.push(`updated_at = $${paramCount + 1}`);
     values.push(new Date());
 
-    paramCount++;
+    // Add userId for WHERE clause
+    const userIdParam = paramCount + 2;
     values.push(userId);
 
-    const queryText = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+    // FIX 2: Apply safe query construction using whitelist
+    const queryText = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${userIdParam} RETURNING *`;
     const result = await query(queryText, values);
 
     if (result.rows.length === 0) {
@@ -241,21 +243,21 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response, next: 
       return res.status(403).json({ error: 'Cannot update other user profiles' });
     }
 
-    const { skills, interests, bio, displayName, avatarUrl, onboardingCompleted } = req.body;
-    const updateFields: string[] = [];
-    const values: any[] = [];
-    let paramCount = 0;
-    if (skills !== undefined) { paramCount++; updateFields.push(`skills = $${paramCount}`); values.push(Array.isArray(skills) ? JSON.stringify(skills) : '[]'); }
-    if (interests !== undefined) { paramCount++; updateFields.push(`interests = $${paramCount}`); values.push(Array.isArray(interests) ? interests : []); }
-    if (bio !== undefined) { paramCount++; updateFields.push(`bio = $${paramCount}`); values.push(bio); }
-    if (displayName !== undefined) { paramCount++; updateFields.push(`display_name = $${paramCount}`); values.push(displayName); }
-    if (avatarUrl !== undefined) { paramCount++; updateFields.push(`avatar_url = $${paramCount}`); values.push(avatarUrl); }
-    if (onboardingCompleted !== undefined) { paramCount++; updateFields.push(`onboarding_completed = $${paramCount}`); values.push(onboardingCompleted); }
-    if (updateFields.length === 0) { return res.status(400).json({ error: 'No fields to update' }); }
-    paramCount++; updateFields.push(`updated_at = $${paramCount}`); values.push(new Date());
-    paramCount++; values.push(id);
+    // FIX 3: Use safe query builder for generic update
+    const { updateFields, values, paramCount } = getSafeUpdateQuery(req.body);
 
-    const queryText = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+    if (updateFields.length === 0) { return res.status(400).json({ error: 'No fields to update' }); }
+    
+    // Add updated_at
+    updateFields.push(`updated_at = $${paramCount + 1}`);
+    values.push(new Date());
+
+    // Add userId for WHERE clause
+    const userIdParam = paramCount + 2;
+    values.push(id);
+
+
+    const queryText = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${userIdParam} RETURNING *`;
     const result = await query(queryText, values);
 
     if (result.rows.length === 0) { return res.status(404).json({ error: 'User not found' }); }
