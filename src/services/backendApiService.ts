@@ -227,7 +227,7 @@ const api = {
     }),
 
   // --- Feed ---
-  getFeedItems: (): Promise<FeedItem[]> => apiRequest<FeedItem[]>('/api/feed'),
+  getFeedItems: (): Promise<FeedItem[]> => apiRequest<FeedItem[]>('/feed'),
 
   // --- Comments & Feedback ---
   getCommentsByIdeaId: (ideaId: string): Promise<Comment[]> => apiRequest<Comment[]>(`/api/ideas/${ideaId}/comments`),
