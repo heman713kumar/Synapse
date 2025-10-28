@@ -4,12 +4,18 @@ import { parse } from 'pg-connection-string';
 
 const { Pool } = pg;
 
+// Load .env variables (though they are being ignored for DATABASE_URL)
 dotenv.config();
 
-// --- FIX 1: Ensure the hardcoded fallback includes the required sslmode=disable ---
-const defaultDbUrl = 'postgresql://postgres:Mahadev@shiva6563@db.fsgcdhshhsbmodspyggn.supabase.co:5432/postgres?sslmode=disable';
+// --- FIX: Define the Supabase URL as the immediate source of truth ---
+// We use a clean definition that includes the crucial ?sslmode=disable flag.
+const SUPABASE_DB_URL = 'postgresql://postgres:Mahadev@shiva6563@db.fsgcdhshhsbmodspyggn.supabase.co:5432/postgres?sslmode=disable';
 
-const dbUrl = process.env.DATABASE_URL || defaultDbUrl;
+// --- FIX: Force the use of the clean Supabase URL in development ---
+// We check if the environment is NOT production. If it's development, use our clean definition.
+const dbUrl = process.env.NODE_ENV === 'development' 
+    ? SUPABASE_DB_URL
+    : process.env.DATABASE_URL || SUPABASE_DB_URL; // Fallback to Supabase URL in production if env var is missing
 
 // --- Debugging output (kept for analysis) ---
 console.log('🔧 Database Configuration:');
@@ -29,14 +35,12 @@ let poolConfig: any = {
 try {
     const dbConfig = parse(dbUrl);
     
-    // FIX 2: Explicitly cast dbConfig.query to string to resolve TS2345 error
+    // Explicitly cast dbConfig.query to string to resolve TS2345 error (if it returns unknown)
     const queryAsString = dbConfig.query as string; 
     const urlParams = new URLSearchParams(queryAsString);
     const sslMode = urlParams.get('sslmode');
 
-    // Determine SSL configuration
-    // Supabase requires SSL, but local testing requires it to be disabled.
-    // The safest way is to check for the explicit 'disable' flag.
+    // Determine SSL configuration: True unless explicitly disabled in the connection string
     const sslEnabled = sslMode !== 'disable';
     
     // Use the parsed values from the URL
@@ -47,7 +51,7 @@ try {
         host: dbConfig.host,
         port: dbConfig.port ? parseInt(dbConfig.port, 10) : 5432,
         database: dbConfig.database,
-        // FIX 3: Set SSL based on flag. If enabled, use Supabase setting. If disabled, use false.
+        // Configure SSL based on flag. If enabled, use Supabase setting. If disabled, use false.
         ssl: sslEnabled ? { rejectUnauthorized: false } : false,
     };
     
