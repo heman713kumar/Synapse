@@ -203,7 +203,7 @@ export interface Notification {
   message?: string; // Make optional if not always present
   content?: string; // Added based on backend table
   read?: boolean; // Changed from is_read if backend sends read
-  is_read?: boolean; // Keep if backend actually sends this
+  is_read?: boolean; // Keep if backend sends this
   createdAt: string; // ISO date string
   created_at?: string; // Keep if backend sends this
   link?: { // Make optional
@@ -241,10 +241,6 @@ export interface Feedback {
   comment?: string; // Make optional
   createdAt: string;
   created_at?: string; // Add if backend sends 'created_at'
-  // Add fields returned by backend query
-  username?: string;
-  displayName?: string;
-  avatarUrl?: string;
   feasibility?: number;
   innovation?: number;
   marketPotential?: number; // Check name consistency with backend (market_potential?)
@@ -391,9 +387,8 @@ export interface UserAchievement {
   // Add fields returned by backend query
   id?: string;
   userId?: string;
-  user_id?: string; // Add if backend sends snake_case
+  user_id?: string;
 }
-
 
 export interface AchievementPost {
     postId: string; // Use this one
@@ -416,6 +411,11 @@ export interface AchievementPost {
     is_public?: boolean; // Add if backend sends this
 }
 
+// --- FIX: IdeaBoard interface is simplified to match logic ---
+export interface IdeaBoard {
+  nodes: IdeaNode[];
+  isPublic: boolean;
+}
 
 // --- IDEA TEMPLATE TYPES ---
 

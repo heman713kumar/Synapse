@@ -1,11 +1,10 @@
 // C:\Users\hemant\Downloads\synapse\src\components\IdeaBoard.tsx
+// FIX 1: Use direct import and standard name, relying on TS module context to resolve component vs interface
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion } from '../types';
+import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion, IdeaBoard } from '../types'; 
 // FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
 import * as Icons from './icons';
-// BoardTemplates import seems unused in this file, but harmless
-// import { BASIC_MINDMAP_TEMPLATE, SWOT_TEMPLATE } from './BoardTemplates';
 
 interface IdeaBoardProps {
     ideaId: string;
@@ -209,19 +208,21 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
                 api.getBoardVersions(ideaId), 
             ]);
 
-            // FIX: Ensure the received idea object has a safety net for potential missing sub-objects 
-            // from the backend (especially after idea creation).
+            // FIX 2: Define a default structure that satisfies the IdeaBoard interface.
+            const defaultIdeaBoard: IdeaBoard = { nodes: [], isPublic: false };
+            
             const ideaWithDefaults = { 
                 ...ideaData, 
-                ideaBoard: ideaData?.ideaBoard || {}, // Ensure ideaBoard property exists
-                connections: ideaData?.connections || [] 
+                // CRITICAL FIX: Ensure ideaBoard property exists and contains mandatory fields
+                ideaBoard: ideaData?.ideaBoard || defaultIdeaBoard,
             };
             
+            // FIX 2: Set the state with the fully structured object.
             setIdea(ideaWithDefaults);
             
             if (ideaData) {
-                // Use safe property access for nodes array retrieval
-                const ideaBoardNodes = (ideaData.ideaBoard && ideaData.ideaBoard.nodes) ? ideaData.ideaBoard.nodes : [];
+                // Use safe property access: access nodes directly from the safe ideaBoard object
+                const ideaBoardNodes = ideaWithDefaults.ideaBoard.nodes || [];
                 const sortedNodes = [...ideaBoardNodes].sort(sortNodes);
                 
                 setNodes(sortedNodes);
@@ -472,9 +473,11 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
             <div className="flex-1 relative" onMouseUp={handleMouseUp} onMouseMove={handleMouseMove}>
                 <svg ref={svgRef} className="w-full h-full" onMouseDown={handleMouseDown} onWheel={handleWheel}>
                     <g transform={`scale(${view.zoom}) translate(${-view.x}, ${-view.y})`}>
-                        {nodes.map(fromNode => 
+                        {/* FIX 3 & 4: Apply optional chaining to access nodes */}
+                        {idea.ideaBoard?.nodes?.map(fromNode => 
                             (fromNode.connections || []).map(toId => { // Add safety check here
-                                const toNode = nodes.find(n => n.id === toId);
+                                // FIX 5: Use optional chaining on idea.ideaBoard.nodes lookup
+                                const toNode = idea.ideaBoard?.nodes.find(n => n.id === toId);
                                 if (!toNode) return null;
                                 return <ConnectionLine key={`${fromNode.id}-${toNode.id}`} fromNode={fromNode} toNode={toNode} />;
                             })
