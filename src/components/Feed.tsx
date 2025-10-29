@@ -15,21 +15,25 @@ type SortOrder = 'relevant' | 'trending' | 'likes' | 'newest' | 'collaboration' 
 
 const calculateRelevanceScore = (idea: Idea, user: User | null): number => {
     if (!user) return 0;
-    // --- (FIX 1/3) Add safety check for skills array ---
+    
+    // DEFENSIVE FIX: Ensure all idea properties are treated as arrays/strings
+    const ideaRequiredSkills = idea.requiredSkills || [];
+    const ideaTags = idea.tags || [];
+    
     const userSkills = new Set((user.skills || []).map(s => s.skillName));
-    // --- (FIX 2/3) Add safety check for interests array ---
     const userInterests = new Set(user.interests || []);
 
     let relevanceScore = 0;
+    
     // Strong boost for matching required skills with user's skills
-    (idea.requiredSkills || []).forEach(skill => {
+    (ideaRequiredSkills).forEach(skill => {
         if (userSkills.has(skill)) {
             relevanceScore += 15;
         }
     });
 
     // Boost for matching idea tags with user's interests
-    (idea.tags || []).forEach(tag => {
+    (ideaTags).forEach(tag => {
         if (userInterests.has(tag)) {
             relevanceScore += 5;
         }
@@ -44,27 +48,36 @@ const calculateRelevanceScore = (idea: Idea, user: User | null): number => {
 };
 
 const calculateTrendingScore = (idea: Idea): number => {
-    const hoursAgo = (new Date().getTime() - new Date(idea.createdAt).getTime()) / (1000 * 60 * 60);
+    // FIX: Safely access createdAt (assume it's an ISO string)
+    const createdAtTime = idea.createdAt ? new Date(idea.createdAt).getTime() : Date.now();
+    const hoursAgo = (Date.now() - createdAtTime) / (1000 * 60 * 60);
     const gravity = 1.8;
     const engagement = (idea.likesCount || 0) + ((idea.commentsCount || 0) * 2);
-    const trendingScore = engagement / Math.pow(hoursAgo + 2, gravity);
+    // Add check to prevent division by zero or negative hours (though Math.pow protects somewhat)
+    const trendingScore = engagement / Math.pow(Math.max(hoursAgo, 0) + 2, gravity);
     return trendingScore;
 };
 
 const calculateCollaborationScore = (idea: Idea): number => {
     let collabScore = 0;
-    collabScore += (idea.requiredSkills || []).length * 5;
+    
+    // DEFENSIVE FIX: Treat requiredSkills and collaborators as arrays
+    const ideaRequiredSkills = idea.requiredSkills || [];
+    const ideaCollaborators = idea.collaborators || [];
+
+    collabScore += ideaRequiredSkills.length * 5;
     collabScore += (idea.commentsCount || 0) * 2;
 
     // Use safe access for collaborators length
-    if ((idea.collaborators || []).length === 0) {
+    if (ideaCollaborators.length === 0) {
         collabScore += 25;
     } else {
-        collabScore += 10 / ((idea.collaborators || []).length || 1); // Ensure length is at least 1 if array exists
+        collabScore += 10 / (ideaCollaborators.length); 
     }
 
-    // --- FIX: Add parentheses here ---
-    if ((idea.questionnaire?.skillsLooking ?? '').trim().length > 5) {
+    // FIX: Ensure questionnaire exists before accessing skillsLooking
+    const skillsLookingString = idea.questionnaire?.skillsLooking || '';
+    if (skillsLookingString.trim().length > 5) {
         collabScore += 15;
     }
 
@@ -74,11 +87,13 @@ const calculateCollaborationScore = (idea: Idea): number => {
 const calculateSkillMatchScore = (idea: Idea, user: User | null): number => {
     if (!user || !user.skills || user.skills.length === 0) return 0;
     
-    // --- (FIX 3/3) Add safety check for skills array ---
+    // DEFENSIVE FIX: Treat requiredSkills as array
+    const ideaRequiredSkills = idea.requiredSkills || [];
+
     const userSkills = new Set((user.skills || []).map(s => s.skillName));
     let matchCount = 0;
 
-    (idea.requiredSkills || []).forEach(skill => {
+    (ideaRequiredSkills).forEach(skill => {
         if (userSkills.has(skill)) {
             matchCount++;
         }
@@ -139,13 +154,19 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
             
             const idea = item.data;
             if (!idea) return false; // Guard against bad data
+            
+            // DEFENSIVE FIXES: Ensure data is usable before calling methods
+            const ideaTitle = idea.title || '';
+            const ideaSummary = idea.summary || '';
+            const ideaRequiredSkills = idea.requiredSkills || [];
 
             let matches = true;
 
             if (searchQuery.trim() !== '') {
                 const lowercasedQuery = searchQuery.toLowerCase();
-                matches = idea.title.toLowerCase().includes(lowercasedQuery) ||
-                          idea.summary.toLowerCase().includes(lowercasedQuery);
+                // FIX: Use guaranteed strings for searching
+                matches = ideaTitle.toLowerCase().includes(lowercasedQuery) ||
+                          ideaSummary.toLowerCase().includes(lowercasedQuery);
             }
 
             if (matches && filters.sector) {
@@ -157,7 +178,8 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
             }
 
             if (matches && filters.skills.length > 0) {
-                matches = filters.skills.some(skill => (idea.requiredSkills || []).includes(skill));
+                // FIX: Use guaranteed array for comparison
+                matches = filters.skills.some(skill => (ideaRequiredSkills).includes(skill));
             }
             
             return matches;
@@ -320,17 +342,20 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
                     <div className="space-y-6">
                         {filteredItems.length > 0 ? (
                              filteredItems.map(item => {
+                                // Ensure item.data exists before passing to components
+                                if (!item.data) return null; 
+
                                 if (item.type === 'idea') {
                                     return <IdeaCard key={item.data.ideaId} idea={item.data} setPage={setPage} />
                                 }
                                 if (item.type === 'achievement') {
                                     // Make sure post data is valid
-                                    if (!item.data || !item.data.postId) return null;
+                                    if (!item.data.postId) return null;
                                     return <AchievementPostCard key={item.data.postId} post={item.data} setPage={setPage} />
                                 }
                                 if (item.type === 'milestone') {
                                     // Make sure post data is valid
-                                    if (!item.data || !item.data.postId) return null;
+                                    if (!item.data.postId) return null;
                                     return <MilestonePostCard key={item.data.postId} post={item.data} setPage={setPage} />
                                 }
                                 return null;
