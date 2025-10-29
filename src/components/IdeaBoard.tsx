@@ -1,7 +1,8 @@
 // C:\Users\hemant\Downloads\synapse\src\components\IdeaBoard.tsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-// FIX 1: Remove the IdeaBoard type entirely to prevent naming conflict.
+// FIX 1: Remove the type from the value import to resolve the naming conflict.
 import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion } from '../types'; 
+import type { IdeaBoard } from '../types'; // Use type-only import for the interface
 // FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
 import * as Icons from './icons';
@@ -209,7 +210,7 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
             ]);
 
             // FIX 2: Define a default structure that satisfies the IdeaBoard interface.
-            // FIX: Use inline type definition for the default object to avoid naming conflict
+            // Using inline type definition to resolve naming conflict (TS2749)
             const defaultIdeaBoard: { nodes: IdeaNode[]; isPublic: boolean } = { nodes: [], isPublic: false };
             
             const ideaWithDefaults = { 
