@@ -1,8 +1,7 @@
 // C:\Users\hemant\Downloads\synapse\src\components\IdeaBoard.tsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-// FIX 1: Remove the type from the value import to resolve the naming conflict.
-import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion } from '../types'; 
-import type { IdeaBoard } from '../types'; // Use type-only import for the interface
+// FIX 1: Alias the imported type immediately to ensure it does not conflict with the component name 'IdeaBoard'.
+import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion, IdeaBoard as IdeaBoardType } from '../types'; 
 // FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
 import * as Icons from './icons';
