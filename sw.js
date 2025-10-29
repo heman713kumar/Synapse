@@ -1,7 +1,7 @@
 // sw.js
 
 // IMPORTANT: Increment the cache version to force the browser to re-install the Service Worker!
-const CACHE_NAME = 'synapse-cache-v15'; // INCREMENTED CACHE VERSION
+const CACHE_NAME = 'synapse-cache-v16'; // INCREMENTED CACHE VERSION
 
 // These are the bare minimum, highly reliable paths.
 // All paths must start with the deployment sub-path '/Synapse/'.
