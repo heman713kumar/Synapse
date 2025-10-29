@@ -1,7 +1,7 @@
 // C:\Users\hemant\Downloads\synapse\src\components\IdeaBoard.tsx
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-// FIX 1: Alias the imported type immediately to ensure it does not conflict with the component name 'IdeaBoard'.
-import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion, IdeaBoard as IdeaBoardType } from '../types'; 
+// FIX 1: Remove the IdeaBoard type entirely to prevent the TS6133 unused declaration error.
+import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion } from '../types'; 
 // FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
 import * as Icons from './icons';
