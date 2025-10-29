@@ -200,22 +200,33 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
     
     const sortNodes = (a: IdeaNode, b: IdeaNode) => a.id.localeCompare(b.id);
 
-    // Data Fetching
     const fetchData = useCallback(async () => {
         try {
             // Now uses real API
             const [ideaData, commentsData, versionsData] = await Promise.all([
                 api.getIdeaById(ideaId),
-                api.getCommentsByNodeId(ideaId), // Assumes this exists in backendApi
-                api.getBoardVersions(ideaId), // Assumes this exists in backendApi
+                api.getCommentsByNodeId(ideaId), 
+                api.getBoardVersions(ideaId), 
             ]);
 
-            setIdea(ideaData);
+            // FIX: Ensure the received idea object has a safety net for potential missing sub-objects 
+            // from the backend (especially after idea creation).
+            const ideaWithDefaults = { 
+                ...ideaData, 
+                ideaBoard: ideaData?.ideaBoard || {}, // Ensure ideaBoard property exists
+                connections: ideaData?.connections || [] 
+            };
+            
+            setIdea(ideaWithDefaults);
+            
             if (ideaData) {
-                // --- (FIX 1/5) Add safety check for nodes array ---
-                const sortedNodes = [...(ideaData.ideaBoard?.nodes || [])].sort(sortNodes);
+                // Use safe property access for nodes array retrieval
+                const ideaBoardNodes = (ideaData.ideaBoard && ideaData.ideaBoard.nodes) ? ideaData.ideaBoard.nodes : [];
+                const sortedNodes = [...ideaBoardNodes].sort(sortNodes);
+                
                 setNodes(sortedNodes);
                 lastSavedNodesJson.current = JSON.stringify(sortedNodes);
+                
                 if(history.length === 1 && history[0].length === 0) {
                     setHistory([sortedNodes]);
                     setHistoryIndex(0);
@@ -225,8 +236,9 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
             }
         } catch (error) {
             console.error("Failed to fetch board data:", error);
-            alert("Could not load idea board.");
-            setPage('ideaDetail', ideaId);
+            // Alert user that board failed to load and redirect back to the Detail page
+            alert("Could not load idea board. Redirecting to Idea Detail.");
+            setPage('ideaDetail', ideaId); // Redirect to the detail page on failure
         } finally {
             setIsLoading(false);
         }
