@@ -1,7 +1,7 @@
 // C:\Users\hemant\Downloads\synapse\src\components\IdeaBoard.tsx
-// FIX 1: Use direct import and standard name, relying on TS module context to resolve component vs interface
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion, IdeaBoard } from '../types'; 
+// FIX 1: Rename the imported interface to IIdeaBoard to avoid conflict with the component name.
+import { Idea, User, Page, IdeaNode, NodeComment, IdeaBoardVersion, IdeaBoard as IIdeaBoard } from '../types'; 
 // FIX: Changed mockApiService to backendApiService
 import api from '../services/backendApiService';
 import * as Icons from './icons';
@@ -208,7 +208,8 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
                 api.getBoardVersions(ideaId), 
             ]);
 
-            // FIX 2: Define a default structure that satisfies the IdeaBoard interface.
+            // FIX 1: Ensure the received idea object has a safety net for required sub-objects.
+            // We use a default structure that satisfies the IdeaBoard interface.
             const defaultIdeaBoard: IdeaBoard = { nodes: [], isPublic: false };
             
             const ideaWithDefaults = { 
