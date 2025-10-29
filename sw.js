@@ -1,7 +1,7 @@
 // sw.js
 
 // IMPORTANT: Increment the cache version to force the browser to re-install the Service Worker!
-const CACHE_NAME = 'synapse-cache-v14'; 
+const CACHE_NAME = 'synapse-cache-v15'; // INCREMENTED CACHE VERSION
 
 // These are the bare minimum, highly reliable paths.
 // All paths must start with the deployment sub-path '/Synapse/'.
@@ -69,6 +69,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const { request } = event;
+  const url = new URL(request.url);
 
   // --- Navigation requests: Network-first, fallback to cache (offline page) ---
   if (request.mode === 'navigate') {
@@ -91,6 +92,27 @@ self.addEventListener('fetch', event => {
     );
     return; // Don't execute further code for navigation requests
   }
+
+  // --- FIX: Intercept the failing default-avatar request ---
+  if (url.pathname.endsWith('default-avatar.png')) {
+      event.respondWith(
+          // Check cache first (for future successful fetches)
+          caches.match(request).then(response => {
+              if (response) {
+                  return response;
+              }
+              // If not in cache, fetch it. If fetch fails (404), return a minimal success response (200 OK)
+              return fetch(request).catch(() => {
+                  console.warn('SW intercept: Fulfilling missing avatar with empty 200 response.');
+                  // Return a valid, but empty, image response to prevent the console crash
+                  return new Response(new Blob([], { type: 'image/png' }), { status: 200 });
+              });
+          })
+      );
+      return; // Stop processing further
+  }
+  // --- END FIX ---
+
 
   // --- Other requests (assets, API calls etc.): Cache-first, fallback to network ---
   // Ignore API calls or other specific paths if they shouldn't be cached
@@ -125,11 +147,6 @@ self.addEventListener('fetch', event => {
          return networkResponse;
       } catch (error) {
           console.error('Service Worker: Network fetch failed, and not in cache:', request.url, error);
-          // Optional: Return a custom offline response for assets if needed
-          // For example, return a placeholder image if an image fetch fails offline
-          // if (request.destination === 'image') {
-          //    return cache.match('/Synapse/placeholder-image.png');
-          // }
           return Response.error(); // Generic error response
       }
     })
