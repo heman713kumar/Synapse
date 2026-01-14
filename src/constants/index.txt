@@ -1,0 +1,54 @@
+import { Achievement } from '../types';
+
+export const ACHIEVEMENTS: Record<string, Achievement> = {
+    first_idea: {
+        id: 'first_idea',
+        name: 'First Idea',
+        description: 'Posted your first innovative idea',
+        icon: 'LightBulbIcon'
+    },
+    five_collaborators: {
+        id: 'five_collaborators',
+        name: 'Team Builder',
+        description: 'Collaborated with 5 different people',
+        icon: 'UsersIcon'
+    },
+    forum_enthusiast: {
+        id: 'forum_enthusiast',
+        name: 'Forum Enthusiast',
+        description: 'Posted 10 messages in discussion forums',
+        icon: 'TrophyIcon'
+    },
+    popular_idea: {
+        id: 'popular_idea',
+        name: 'Popular Idea',
+        description: 'Had an idea with 10+ upvotes',
+        icon: 'TrophyIcon'
+    },
+    early_adopter: {
+        id: 'early_adopter',
+        name: 'Early Adopter',
+        description: 'Joined the platform in its early days',
+        icon: 'TrophyIcon'
+    }
+};
+
+// Add this SECTORS array:
+export const SECTORS = [
+    'Technology',
+    'Healthcare',
+    'Education',
+    'Finance',
+    'Energy',
+    'Transportation',
+    'Agriculture',
+    'Manufacturing',
+    'Retail',
+    'Entertainment',
+    'Real Estate',
+    'Food & Beverage',
+    'Travel & Tourism',
+    'Sports & Fitness',
+    'Environment',
+    'Social Impact'
+];

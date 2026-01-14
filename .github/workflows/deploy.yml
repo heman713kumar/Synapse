@@ -1,0 +1,35 @@
+# C:\Users\hemant\Downloads\synapse\.github\workflows\deploy.yml
+name: Deploy Frontend to GitHub Pages
+on:
+  push:
+    branches:
+      - main # Or 'master' if that's your default branch
+  workflow_dispatch:
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to push to gh-pages branch
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+      - name: Set up Node.js ⚙️
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Or '22'
+        # Cache disabled previously for diagnostics, can be re-enabled if needed
+        # cache: 'npm'
+        # cache-dependency-path: package-lock.json
+      - name: Install Dependencies 📦
+        # Using clean install
+        run: npm ci
+      - name: Build Application 🏗️
+        # Correctly formatted run command with explicit config and base path
+        run: npm run build -- -c vite.config.ts --base=/Synapse/
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }} # Uses GitHub secret for backend URL
+      - name: Deploy to GitHub Pages 🚀
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist # Directory containing the build output

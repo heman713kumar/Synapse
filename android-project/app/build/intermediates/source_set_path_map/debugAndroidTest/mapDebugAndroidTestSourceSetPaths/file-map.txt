@@ -1,0 +1,4 @@
+io.github.heman713kumar.twa.test.app-androidTest-0 C:\Users\priya\Downloads\Synapse-main\Synapse-main\android-project\app\build\generated\res\resValues\androidTest\debug
+io.github.heman713kumar.twa.test.app-mergeDebugAndroidTestResources-1 C:\Users\priya\Downloads\Synapse-main\Synapse-main\android-project\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
+io.github.heman713kumar.twa.test.app-mergeDebugAndroidTestResources-2 C:\Users\priya\Downloads\Synapse-main\Synapse-main\android-project\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
+io.github.heman713kumar.twa.test.app-debugAndroidTest-3 C:\Users\priya\Downloads\Synapse-main\Synapse-main\android-project\app\build\intermediates\merged_res\debugAndroidTest\mergeDebugAndroidTestResources

@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2016", // Or newer
+    "module": "NodeNext", // Use NodeNext for modern Node ESM support
+    "moduleResolution": "NodeNext", // Use NodeNext resolution
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+    // Add other options as needed
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.spec.ts"]
+}
