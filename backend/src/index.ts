@@ -8,17 +8,36 @@ import fs from 'fs';
 import http from 'http';
 
 // Import database and socket
-import { testConnection } from './db/database.js';
-import { setupSocketIO } from './sockets/socket.js';
+import { testConnection } from './db/database';
+import { setupSocketIO } from './sockets/socket';
 
 // Import routes
-import authRoutes from './routes/auth.routes.js';
-import usersRoutes from './routes/users.routes.js';
-import ideasRoutes from './routes/ideas.routes.js';
-import chatRoutes from './routes/chat.routes.js';
-import uploadRoutes from './routes/upload.routes.js';
-import aiRoutes from './routes/ai.routes.js';
-import feedRoutes from './routes/feed.routes.js';
+import authRoutes from './routes/auth.routes';
+import usersRoutes from './routes/users.routes';
+import ideasRoutes from './routes/ideas.routes';
+import chatRoutes from './routes/chat.routes';
+import uploadRoutes from './routes/upload.routes';
+import aiRoutes from './routes/ai.routes';
+import feedRoutes from './routes/feed.routes';
+import featuresRoutes from './routes/features.routes';
+
+// New expansion routes
+import billingRoutes, { billingWebhookHandler } from './routes/billing.routes';
+import bountiesRoutes from './routes/bounties.routes';
+import jobsRoutes from './routes/jobs.routes';
+import mentorshipRoutes from './routes/mentorship.routes';
+import pollsRoutes from './routes/polls.routes';
+import reactionsRoutes from './routes/reactions.routes';
+import gamificationRoutes from './routes/gamification.routes';
+import developerRoutes from './routes/developer.routes';
+import pushRoutes from './routes/push.routes';
+import gdprRoutes from './routes/gdpr.routes';
+import publicRoutes from './routes/public.routes';
+import aiExtendedRoutes from './routes/ai-extended.routes';
+
+// Realtime + cron
+import { attachRealtime } from './sockets/realtime';
+import { startCron } from './services/cronRunner';
 
 dotenv.config();
 
@@ -51,6 +70,10 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(morgan('combined'));
+
+// IMPORTANT: Stripe webhook needs raw body — mount BEFORE express.json()
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), billingWebhookHandler);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -83,6 +106,21 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/feed', feedRoutes);
+app.use('/api', featuresRoutes);
+
+// New expansion routes
+app.use('/api/billing',     billingRoutes);
+app.use('/api/bounties',    bountiesRoutes);
+app.use('/api/jobs',        jobsRoutes);
+app.use('/api/mentorship',  mentorshipRoutes);
+app.use('/api/polls',       pollsRoutes);
+app.use('/api/reactions',   reactionsRoutes);
+app.use('/api/gamification',gamificationRoutes);
+app.use('/api/developer',   developerRoutes);
+app.use('/api/push',        pushRoutes);
+app.use('/api/gdpr',        gdprRoutes);
+app.use('/api/public',      publicRoutes);
+app.use('/api/ai',          aiExtendedRoutes);
 
 // Basic API info
 app.get('/api', (req: Request, res: Response) => {
@@ -131,7 +169,9 @@ const startServer = async () => {
       console.log(`📍 http://localhost:${PORT}`);
     });
 
-    setupSocketIO(server);
+    const io = setupSocketIO(server);
+    attachRealtime(io);
+    startCron();
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

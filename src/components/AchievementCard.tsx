@@ -1,45 +1,57 @@
 import React from 'react';
 import { Achievement } from '../types';
-import * as Icons from './icons';
+import { Trophy, Lock, CheckCircle2 } from 'lucide-react';
+import { Progress } from './ui/Progress';
+import { cn } from '../utils/cn';
 
 interface AchievementCardProps {
-    achievement: Achievement & { progress: number; unlockedAt: string | null };
+  achievement: Achievement & { progress: number; unlockedAt: string | null };
 }
 
 export const AchievementCard: React.FC<AchievementCardProps> = ({ achievement }) => {
-    const isUnlocked = !!achievement.unlockedAt;
-    const progressPercent = Math.min((achievement.progress / achievement.goal) * 100, 100);
+  const isUnlocked = !!achievement.unlockedAt;
+  const progressPercent = Math.min((achievement.progress / achievement.goal) * 100, 100);
 
-    const IconComponent = Icons[achievement.icon as keyof typeof Icons] || Icons.TrophyIcon;
+  return (
+    <div
+      className={cn(
+        'surface p-5 text-center transition-all',
+        isUnlocked ? 'border-amber-500/40 shadow-card-hover' : 'opacity-90'
+      )}
+    >
+      <div
+        className={cn(
+          'mx-auto h-16 w-16 rounded-2xl flex items-center justify-center mb-3 transition-all',
+          isUnlocked
+            ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 text-white shadow-glow-sm'
+            : 'bg-muted text-muted-foreground'
+        )}
+      >
+        {isUnlocked ? <Trophy className="h-8 w-8" /> : <Lock className="h-6 w-6" />}
+      </div>
+      <h3 className={cn('font-semibold', isUnlocked ? 'text-foreground' : 'text-muted-foreground')}>
+        {achievement.name}
+      </h3>
+      <p className="text-xs text-muted-foreground mt-1 min-h-[2.4em] line-clamp-2">
+        {achievement.description}
+      </p>
 
-    return (
-        <div className={`bg-[#1A1A24] p-6 rounded-2xl shadow-lg border ${isUnlocked ? 'border-yellow-400/30' : 'border-white/10'} flex flex-col items-center text-center transition-all duration-300`}>
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${isUnlocked ? 'bg-yellow-400/10' : 'bg-[#252532]'}`}>
-                <IconComponent className={`w-10 h-10 ${isUnlocked ? 'text-yellow-400' : 'text-gray-400'}`} />
+      <div className="mt-4">
+        {isUnlocked ? (
+          <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-success bg-success/10 py-1.5 rounded-lg">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Unlocked {new Date(achievement.unlockedAt!).toLocaleDateString()}
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-between text-[10px] text-muted-foreground mb-1.5 font-medium">
+              <span>Progress</span>
+              <span className="tabular-nums">{achievement.progress}/{achievement.goal}</span>
             </div>
-            <h3 className={`font-bold text-lg ${isUnlocked ? 'text-white' : 'text-gray-300'}`}>{achievement.name}</h3>
-            <p className="text-sm text-gray-400 mt-1 h-10">{achievement.description}</p>
-            
-            <div className="w-full mt-4">
-                {isUnlocked ? (
-                     <div className="text-center font-semibold text-yellow-400 bg-yellow-400/10 py-1.5 rounded-lg">
-                        Unlocked on {new Date(achievement.unlockedAt!).toLocaleDateString()}
-                    </div>
-                ) : (
-                    <>
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>Progress</span>
-                            <span>{achievement.progress} / {achievement.goal}</span>
-                        </div>
-                        <div className="w-full bg-[#252532] rounded-full h-2.5">
-                            <div
-                                className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2.5 rounded-full"
-                                style={{ width: `${progressPercent}%` }}
-                            ></div>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
+            <Progress value={progressPercent} gradient className="h-1.5" />
+          </>
+        )}
+      </div>
+    </div>
+  );
 };

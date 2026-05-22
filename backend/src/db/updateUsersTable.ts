@@ -1,5 +1,5 @@
 // C:\Users\hemant\Downloads\synapse\backend\src\db\updateUsersTable.ts
-import { pool } from './database.js';
+import { pool } from './database';
 
 // Use safe error logging function
 const logError = (context: string, error: unknown) => {

@@ -1,7 +1,7 @@
 // C:\Users\hemant\Downloads\synapse\backend\src\routes\users.routes.ts
 import express, { Request, Response, NextFunction, Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware.js';
-import { query } from '../db/database.js';
+import { authenticateToken } from '../middleware/auth.middleware';
+import { query } from '../db/database';
 
 const router: Router = express.Router();
 

@@ -104,7 +104,7 @@ export const REPORT_REASONS = {
     other: "Other"
 };
 
-export const ACHIEVEMENTS: Record<AchievementId, Achievement> = {
+export const ACHIEVEMENTS: Partial<Record<AchievementId, Achievement>> = {
     first_thought: {
         id: 'first_thought',
         name: 'First Thought',

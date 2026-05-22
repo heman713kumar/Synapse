@@ -1,0 +1,28 @@
+{
+  "_meta": { "name": "Español", "code": "es", "rtl": false },
+
+  "common": {
+    "save": "Guardar", "cancel": "Cancelar", "delete": "Eliminar", "edit": "Editar",
+    "share": "Compartir", "loading": "Cargando…", "error": "Algo salió mal",
+    "retry": "Reintentar", "back": "Atrás", "next": "Siguiente", "confirm": "Confirmar", "close": "Cerrar"
+  },
+  "nav": {
+    "feed": "Inicio", "explore": "Explorar", "inbox": "Bandeja", "notifications": "Notificaciones",
+    "profile": "Perfil", "settings": "Ajustes", "spaces": "Espacios", "events": "Eventos",
+    "leaderboard": "Ranking", "bounties": "Recompensas", "jobs": "Empleos", "mentorship": "Mentoría", "premium": "Premium"
+  },
+  "feed": {
+    "greeting_morning": "Buenos días, {name}", "greeting_afternoon": "Buenas tardes, {name}",
+    "greeting_evening": "Buenas noches, {name}", "greeting_night": "¿Trabajando hasta tarde, {name}?",
+    "empty_title": "Tu feed está vacío",
+    "empty_desc": "Sé el primero en compartir una idea o explora lo que otros están construyendo."
+  },
+  "idea": {
+    "request_collab": "Solicitar colaboración", "pitch_deck": "Presentación", "remix": "Remezclar", "report": "Reportar"
+  },
+  "auth": {
+    "sign_in": "Iniciar sesión", "sign_up": "Registrarse", "sign_out": "Cerrar sesión",
+    "email": "Correo", "password": "Contraseña", "forgot_password": "¿Olvidaste tu contraseña?",
+    "continue_as_guest": "Continuar como invitado"
+  }
+}

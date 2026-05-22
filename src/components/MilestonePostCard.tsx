@@ -1,95 +1,103 @@
-// C:\Users\hemant\Downloads\synapse\src\components\MilestonePostCard.tsx
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { MilestonePost, User, Page, Idea } from '../types';
 import api from '../services/backendApiService';
-import { RocketIcon } from './icons'; // Added LoaderIcon
-import { timeAgo } from '../utils/timeAgo'; // Assuming timeAgo utility
+import { Rocket, ArrowRight } from 'lucide-react';
+import { Avatar } from './ui/Avatar';
+import { Skeleton } from './ui/Skeleton';
+import { timeAgo, userName } from '../utils/format';
 
 interface MilestonePostCardProps {
-    post: MilestonePost;
-    setPage: (page: Page, id?: string) => void;
+  post: MilestonePost;
+  setPage: (page: Page, id?: string) => void;
 }
 
 export const MilestonePostCard: React.FC<MilestonePostCardProps> = ({ post, setPage }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [idea, setIdea] = useState<Idea | null>(null);
-    const [isLoading, setIsLoading] = useState(true); // Added loading state
+  const [user, setUser] = useState<User | null>(null);
+  const [idea, setIdea] = useState<Idea | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true); // Set loading true at start
-            try {
-                // Fetch idea and user concurrently if possible, or sequentially
-                // Check if post.ideaId exists
-                if (!post.ideaId) {
-                     console.warn("Milestone post missing ideaId:", post);
-                     setIsLoading(false); // Stop loading if no ID
-                     return;
-                }
-                const ideaData = await api.getIdeaById(post.ideaId);
-                setIdea(ideaData); // Set idea
+  useEffect(() => {
+    let mounted = true;
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        if (!post.ideaId) { setIsLoading(false); return; }
+        const ideaData = await api.getIdeaById(post.ideaId);
+        if (mounted) setIdea(ideaData);
+        const ownerId = ideaData?.ownerId ?? post.userId;
+        if (ownerId) {
+          const userData = await api.getUserById(ownerId);
+          if (mounted) setUser(userData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch milestone post data:', error);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+    fetchData();
+    return () => { mounted = false; };
+  }, [post.ideaId, post.userId]);
 
-                // Check if ideaData and ownerId exist before fetching user
-                if (ideaData?.ownerId) {
-                    const userData = await api.getUserById(ideaData.ownerId);
-                    setUser(userData); // Set user
-                } else if (post.userId) {
-                    // Fallback to userId on the post itself if ownerId isn't on idea
-                     const userData = await api.getUserById(post.userId);
-                     setUser(userData);
-                } else {
-                     console.warn("Could not determine user for milestone post:", post);
-                }
-            } catch (error) {
-                console.error("Failed to fetch milestone post data:", error);
-                 // Optionally set an error state here
-            } finally {
-                 setIsLoading(false); // Set loading false after fetching
-            }
-        };
-        fetchData();
-    // Depend on post.ideaId and potentially post.userId if used as fallback
-    }, [post.ideaId, post.userId]);
-
-    // Show loader while fetching
-    if (isLoading) {
-         return <div className="bg-gradient-to-br from-[#1A1A24] to-[#1D2E3A] rounded-2xl p-6 shadow-lg border border-cyan-400/20 animate-pulse h-40"></div>;
-    }
-
-    // Don't render if essential data is missing after loading
-    if (!user || !idea) return null;
-
+  if (isLoading) {
     return (
-        <div className="bg-gradient-to-br from-[#1A1A24] to-[#1D2E3A] rounded-2xl p-6 shadow-lg border border-cyan-400/20">
-            <div className="flex items-start space-x-4">
-                <button onClick={() => setPage('profile', user.userId)} className="flex-shrink-0">
-                     {/* --- FIX: Updated path for GitHub Pages subfolder --- */}
-                    <img className="h-12 w-12 rounded-full object-cover bg-gray-700" src={user.avatarUrl || '/Synapse/default-avatar.png'} alt={user.displayName || user.username} />
-                </button>
-                <div className="flex-1 min-w-0"> {/* Allow truncation */}
-                    <p className="text-sm text-gray-400 mb-2 truncate"> {/* Add truncation */}
-                         {/* --- (FIXED) Use displayName --- */}
-                        <button onClick={() => setPage('profile', user.userId)} className="font-medium hover:underline text-white">{user.displayName || user.username}</button>
-                        's project{' '}
-                        <button onClick={() => setPage('ideaDetail', idea.ideaId)} className="font-medium hover:underline text-indigo-400">{idea.title}</button>
-                        {' '}just achieved a milestone &middot; {timeAgo(post.createdAt)}
-                    </p>
-
-                    <div className="bg-black/20 p-4 rounded-lg flex items-center space-x-4 border border-white/10">
-                        <div className="w-16 h-16 rounded-full flex items-center justify-center bg-cyan-400/10 flex-shrink-0">
-                            <RocketIcon className="w-8 h-8 text-cyan-400" />
-                        </div>
-                        <div className="min-w-0"> {/* Allow truncation */}
-                            <p className="text-sm text-gray-400">Milestone Completed</p>
-                            {/* Use post.title as fallback if milestoneTitle isn't present */}
-                            <h3 className="font-bold text-xl text-white truncate" title={post.milestoneTitle || post.title}>{post.milestoneTitle || post.title || 'Untitled Milestone'}</h3>
-                             <button onClick={() => setPage('ideaDetail', idea.ideaId)} className="mt-2 text-cyan-400 text-sm font-semibold hover:underline">
-                                View Project Progress &rarr;
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <div className="surface p-5 space-y-3">
+        <div className="flex gap-3">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="h-3 w-1/2 mt-1" />
         </div>
+        <Skeleton className="h-24 w-full rounded-xl" />
+      </div>
     );
+  }
+
+  if (!user || !idea) return null;
+
+  return (
+    <motion.article
+      whileHover={{ y: -2 }}
+      className="surface surface-hover p-5 relative overflow-hidden"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-sky-500/5 pointer-events-none" />
+
+      <div className="relative flex items-start gap-3">
+        <button onClick={() => setPage('profile', user.userId)} className="rounded-full focus-ring shrink-0">
+          <Avatar src={user.avatarUrl} name={userName(user)} size="md" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-muted-foreground truncate">
+            <button onClick={() => setPage('profile', user.userId)} className="font-semibold text-foreground hover:text-primary transition-colors">
+              {userName(user)}
+            </button>
+            {"'s "}
+            <button onClick={() => setPage('ideaDetail', idea.ideaId)} className="font-semibold text-primary hover:underline">
+              {idea.title}
+            </button>
+            {' hit a milestone'}
+            <span className="ml-1.5 text-xs">· {timeAgo(post.createdAt)}</span>
+          </p>
+
+          <div className="mt-3 flex items-center gap-3 rounded-xl border border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-sky-500/10 p-4">
+            <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-cyan-500 to-sky-500 flex items-center justify-center text-white shadow-glow-sm shrink-0">
+              <Rocket className="h-7 w-7" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase font-semibold tracking-wider text-cyan-600 dark:text-cyan-400">Milestone reached</p>
+              <h3 className="font-bold text-base truncate mt-0.5">{post.milestoneTitle || post.title || 'Untitled milestone'}</h3>
+              {post.description && (
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{post.description}</p>
+              )}
+              <button
+                onClick={() => setPage('ideaDetail', idea.ideaId)}
+                className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
+              >
+                View project progress <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.article>
+  );
 };

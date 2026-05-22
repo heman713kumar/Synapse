@@ -1,7 +1,7 @@
 // C:\Users\hemant\Downloads\synapse\backend\src\routes\ideas.routes.ts
 import express, { Request, Response, NextFunction, Router } from 'express';
-import { authenticateToken, optionalAuth } from '../middleware/auth.middleware.js';
-import { query } from '../db/database.js';
+import { authenticateToken, optionalAuth } from '../middleware/auth.middleware';
+import { query } from '../db/database';
 
 const router: Router = express.Router();
 
@@ -46,9 +46,21 @@ router.get('/', optionalAuth, async (req: Request, res: Response, next: NextFunc
       params.push(stage);
     }
     if (search) {
+      // FIX: Properly increment paramCount for each parameter in ILIKE clause
+      const searchValue = `%${search}%`;
       paramCount++;
-      conditions.push(`(i.title ILIKE $${paramCount} OR i.description ILIKE $${paramCount} OR i.tags::text ILIKE $${paramCount})`);
-      params.push(`%${search}%`);
+      const searchParam1 = paramCount;
+      params.push(searchValue);
+      
+      paramCount++;
+      const searchParam2 = paramCount;
+      params.push(searchValue);
+      
+      paramCount++;
+      const searchParam3 = paramCount;
+      params.push(searchValue);
+      
+      conditions.push(`(i.title ILIKE $${searchParam1} OR i.description ILIKE $${searchParam2} OR i.tags::text ILIKE $${searchParam3})`);
     }
 
     if(conditions.length > 0) {

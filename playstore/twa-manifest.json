@@ -1,0 +1,74 @@
+{
+  "$schema": "https://raw.githubusercontent.com/GoogleChromeLabs/bubblewrap/main/packages/core/src/lib/types/Schema.ts",
+
+  "_comment": "Bubblewrap TWA config for Synapse. Run: bubblewrap init --manifest=./twa-manifest.json",
+
+  "packageId": "app.synapse.twa",
+  "host": "synapse.app",
+  "name": "Synapse",
+  "launcherName": "Synapse",
+  "display": "standalone",
+  "themeColor": "#6366F1",
+  "themeColorDark": "#0A0A0F",
+  "navigationColor": "#6366F1",
+  "navigationColorDark": "#0A0A0F",
+  "navigationDividerColor": "#6366F1",
+  "navigationDividerColorDark": "#0A0A0F",
+  "backgroundColor": "#0A0A0F",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://synapse.app/icons/icon-512.png",
+  "maskableIconUrl": "https://synapse.app/icons/icon-512-maskable.png",
+  "monochromeIconUrl": "https://synapse.app/icons/icon-512-monochrome.png",
+  "splashScreenFadeOutDuration": 300,
+
+  "appVersionCode": 1,
+  "appVersionName": "1.0.0",
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+
+  "shortcuts": [
+    {
+      "name": "New idea",
+      "shortName": "New",
+      "url": "/?action=new-idea",
+      "chosenIconUrl": "https://synapse.app/icons/shortcut-new-96.png"
+    },
+    {
+      "name": "Inbox",
+      "shortName": "Inbox",
+      "url": "/?action=inbox",
+      "chosenIconUrl": "https://synapse.app/icons/shortcut-inbox-96.png"
+    },
+    {
+      "name": "Explore",
+      "shortName": "Explore",
+      "url": "/?action=explore",
+      "chosenIconUrl": "https://synapse.app/icons/shortcut-explore-96.png"
+    }
+  ],
+
+  "generatorApp": "bubblewrap-cli",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": { "enabled": false },
+    "playBilling": { "enabled": false }
+  },
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://synapse.app/",
+  "minSdkVersion": 24,
+  "orientation": "any",
+  "additionalTrustedOrigins": ["https://api.synapse.app"],
+
+  "_notes": {
+    "packageId": "MUST be unique on Play Store. Reverse-DNS your domain. Once published, you can NEVER change this.",
+    "signingKey": "Generate with: keytool -genkey -v -keystore android.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000",
+    "minSdkVersion": "24 = Android 7.0. Covers 96%+ of devices in 2026.",
+    "additionalTrustedOrigins": "Add any subdomain your app navigates to that you also own"
+  }
+}

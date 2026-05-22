@@ -1,0 +1,27 @@
+{
+  "_meta": { "name": "हिन्दी", "code": "hi", "rtl": false },
+  "common": {
+    "save": "सहेजें", "cancel": "रद्द करें", "delete": "हटाएं", "edit": "संपादित करें",
+    "share": "साझा करें", "loading": "लोड हो रहा है…", "error": "कुछ गलत हो गया",
+    "retry": "पुनः प्रयास", "back": "वापस", "next": "अगला", "confirm": "पुष्टि करें", "close": "बंद करें"
+  },
+  "nav": {
+    "feed": "फ़ीड", "explore": "खोजें", "inbox": "इनबॉक्स", "notifications": "सूचनाएं",
+    "profile": "प्रोफ़ाइल", "settings": "सेटिंग्स", "spaces": "स्पेसेस", "events": "इवेंट्स",
+    "leaderboard": "लीडरबोर्ड", "bounties": "बाउंटी", "jobs": "नौकरियाँ", "mentorship": "मेंटरशिप", "premium": "प्रीमियम"
+  },
+  "feed": {
+    "greeting_morning": "सुप्रभात, {name}", "greeting_afternoon": "नमस्ते, {name}",
+    "greeting_evening": "शुभ संध्या, {name}", "greeting_night": "देर रात तक काम कर रहे हैं, {name}?",
+    "empty_title": "आपका फ़ीड खाली है",
+    "empty_desc": "विचार साझा करने वाले पहले बनें या देखें कि दूसरे क्या बना रहे हैं।"
+  },
+  "idea": {
+    "request_collab": "सहयोग का अनुरोध करें", "pitch_deck": "पिच डेक", "remix": "रीमिक्स", "report": "रिपोर्ट करें"
+  },
+  "auth": {
+    "sign_in": "साइन इन", "sign_up": "साइन अप", "sign_out": "साइन आउट",
+    "email": "ईमेल", "password": "पासवर्ड", "forgot_password": "पासवर्ड भूल गए?",
+    "continue_as_guest": "अतिथि के रूप में जारी रखें"
+  }
+}

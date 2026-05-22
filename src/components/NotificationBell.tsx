@@ -1,82 +1,144 @@
 import React, { useState, useEffect } from 'react';
 import { Notification, Page } from '../types';
 import api from '../services/backendApiService';
-import { BellIcon } from './icons';
+import { Bell, CheckCheck } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from './ui/Popover';
+import { Button } from './ui/Button';
+import { Tooltip } from './ui/Tooltip';
+import { Badge } from './ui/Badge';
+import { Separator } from './ui/Separator';
+import { EmptyState } from './ui/EmptyState';
+import { ScrollArea } from './ui/ScrollArea';
+import { cn } from '../utils/cn';
+import { timeAgo } from '../utils/format';
 
 interface NotificationBellProps {
-    setPage: (page: Page, id?: string) => void; // Allow optional ID
+  setPage: (page: Page, id?: string) => void;
 }
 
 export const NotificationBell: React.FC<NotificationBellProps> = ({ setPage }) => {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [isOpen, setIsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [open, setOpen] = useState(false);
 
-    useEffect(() => {
-        const fetchNotifications = async () => {
-            try {
-                const data = await api.getNotificationsByUserId();
-                // Sort by date descending, ensure createdAt exists
-                setNotifications((data || []).sort((a, b) =>
-                    new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-                ));
-            } catch (error) {
-                console.error("Failed to fetch notifications:", error);
-            }
-        };
+  const fetch = async () => {
+    try {
+      const data = await api.getNotificationsByUserId();
+      setNotifications(
+        (data || []).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      );
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  };
 
-        fetchNotifications();
-        const intervalId = setInterval(fetchNotifications, 60000);
-        return () => clearInterval(intervalId);
-    }, []);
+  useEffect(() => {
+    fetch();
+    const intervalId = setInterval(fetch, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read && !n.is_read).length;
 
-    return (
-        <div className="relative">
-            <button onClick={() => setIsOpen(!isOpen)} className="relative p-1 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none">
-                <BellIcon className="h-6 w-6" />
-                {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-[#1A1A24]" />
-                )}
-            </button>
-            {isOpen && (
-                <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-xl shadow-lg bg-white/80 dark:bg-[#1A1A24]/80 backdrop-blur-lg border border-gray-200 dark:border-white/10 focus:outline-none z-50">
-                    <div className="py-1">
-                        <div className="px-4 py-2 text-sm text-gray-900 dark:text-white font-semibold border-b border-gray-200 dark:border-white/10">Notifications</div>
-                        <div className="max-h-60 overflow-y-auto scrollbar-thin">
-                            {notifications.length > 0 ? (
-                                notifications.slice(0, 5).map(notification => (
-                                    <div
-                                        key={notification.id}
-                                        onClick={() => {
-                                            // --- FIX: Check if link exists before navigating ---
-                                            if (notification.link) {
-                                                setPage(notification.link.page, notification.link.id); // Pass ID
-                                            } else {
-                                                console.warn("Notification link missing:", notification);
-                                                setPage('notifications'); // Fallback: go to notifications page
-                                            }
-                                            // TODO: Add API call here to mark this specific notification as read
-                                            setIsOpen(false);
-                                        }}
-                                        className="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5 border-b border-gray-100 dark:border-white/5 cursor-pointer"
-                                    >
-                                        <p className={`${!notification.read ? 'font-bold text-gray-900 dark:text-white' : ''}`}>{notification.message}</p>
-                                        <p className="text-xs text-gray-500 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="px-4 py-3 text-sm text-gray-500">No new notifications</div>
-                            )}
-                        </div>
-                         <div className="px-4 py-2 border-t border-gray-200 dark:border-white/10">
-                            <button onClick={() => { setPage('notifications'); setIsOpen(false); }} className="w-full text-center text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300">
-                                View All Notifications
-                            </button>
-                        </div>
-                    </div>
-                </div>
+  const handleMarkAllRead = async () => {
+    try {
+      await (api as any).markAllNotificationsAsRead?.();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true, is_read: true })));
+    } catch {/* silent */}
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <Tooltip content="Notifications">
+        <PopoverTrigger asChild>
+          <button
+            className="relative p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors focus-ring"
+            aria-label={`Notifications${unreadCount ? ` (${unreadCount} unread)` : ''}`}
+          >
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center ring-2 ring-background">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
             )}
+          </button>
+        </PopoverTrigger>
+      </Tooltip>
+
+      <PopoverContent align="end" className="w-80 p-0">
+        <div className="flex items-center justify-between p-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-sm">Notifications</h3>
+            {unreadCount > 0 && <Badge variant="default" size="sm">{unreadCount} new</Badge>}
+          </div>
+          {unreadCount > 0 && (
+            <Tooltip content="Mark all as read">
+              <button
+                onClick={handleMarkAllRead}
+                className="p-1 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Mark all as read"
+              >
+                <CheckCheck className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          )}
         </div>
-    );
+        <Separator />
+
+        <ScrollArea className="max-h-80">
+          {notifications.length > 0 ? (
+            <ul className="divide-y divide-border">
+              {notifications.slice(0, 6).map((n) => {
+                const isUnread = !n.read && !n.is_read;
+                return (
+                  <li key={n.id}>
+                    <button
+                      onClick={() => {
+                        if (n.link) setPage(n.link.page, n.link.id);
+                        else setPage('notifications');
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        'w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-secondary/50 transition-colors',
+                        isUnread && 'bg-primary/5'
+                      )}
+                    >
+                      {isUnread && <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" aria-hidden />}
+                      {!isUnread && <span className="mt-1.5 h-2 w-2 shrink-0" aria-hidden />}
+                      <div className="flex-1 min-w-0">
+                        <p className={cn('text-sm leading-snug', isUnread ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+                          {n.message || n.content}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {timeAgo(n.createdAt || n.created_at)}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <EmptyState
+              title="You're all caught up"
+              description="No new notifications."
+              size="sm"
+              icon={<Bell className="h-6 w-6" />}
+            />
+          )}
+        </ScrollArea>
+
+        <Separator />
+        <div className="p-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            fullWidth
+            onClick={() => { setPage('notifications'); setOpen(false); }}
+          >
+            View all notifications
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 };

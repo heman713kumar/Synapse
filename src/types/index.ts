@@ -1,51 +1,11 @@
-export interface User {
-    userId: string;
-    id?: string; // Add this to fix Login.tsx error
-    name: string;
-    email: string;
-    avatarUrl: string;
-    bio: string;
-    connections: string[];
-    createdAt: string;
-}
+// Single source of truth: re-export everything from the comprehensive types.ts
+// This file existed as a partial duplicate which shadowed the full type definitions.
+// Re-exporting keeps all imports (`from '../types'`) working without modification.
+export * from '../types';
 
-export interface Idea {
-    ideaId: string;
-    title: string;
-    description: string;
-    ownerId: string;
-    forumMembers: string[];
-    createdAt: string;
-    updatedAt: string;
-}
+// IdeaCardProps / NewIdeaFormProps were defined only here previously — keep them.
+import type { Idea, Page, AchievementId } from '../types';
 
-export interface ForumMessage {
-    messageId: string;
-    ideaId: string;
-    senderId: string;
-    text: string;
-    isPinned: boolean;
-    createdAt: string;
-    updatedAt: string;
-}
-
-export type Page = 'feed' | 'ideaDetail' | 'profile' | 'explore' | 'connections' | 'achievements' | 'newIdea';
-
-export type AchievementId = 
-    | 'first_idea' 
-    | 'five_collaborators' 
-    | 'forum_enthusiast' 
-    | 'popular_idea' 
-    | 'early_adopter';
-
-export interface Achievement {
-    id: AchievementId;
-    name: string;
-    description: string;
-    icon: string;
-}
-
-// Add these interfaces for components that need them:
 export interface IdeaCardProps {
     idea: Idea;
     setPage: (page: Page, id?: string) => void;

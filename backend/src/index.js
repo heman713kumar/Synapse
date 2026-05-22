@@ -33,9 +33,10 @@ const PORT = process.env.PORT || 3001;
    ======================= */
 
 const allowedOrigins = [
-  'http://localhost:5173',
-  'https://synapse-frontend.onrender.com', // change if frontend URL differs
+  'http://localhost:5173', // dev frontend
+  'https://synapse-frontend.onrender.com', // deployed frontend
 ];
+
 
 app.use(cors({
   origin: (origin, callback) => {

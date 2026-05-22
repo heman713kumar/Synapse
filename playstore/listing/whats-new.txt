@@ -1,0 +1,11 @@
+v1.0.0 — First Android release 🚀
+
+✨ Everything from the web app, now in your pocket
+🤖 AI Idea Coach — refine pitches, suggest tags, generate decks
+💰 Bounties + Job Board — get paid to ship
+🤝 Mentorship marketplace — book office hours with founders
+📊 Smart analytics on every idea
+♿ Accessibility: high contrast, reduced motion, large text, dyslexia font
+⚡ Lightning fast — initial load under 1s
+
+Press ⌘K (or tap the search bar) to jump anywhere instantly.

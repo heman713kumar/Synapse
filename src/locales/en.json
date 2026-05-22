@@ -1,0 +1,60 @@
+{
+  "_meta": { "name": "English", "code": "en", "rtl": false },
+
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "share": "Share",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "back": "Back",
+    "next": "Next",
+    "confirm": "Confirm",
+    "close": "Close"
+  },
+
+  "nav": {
+    "feed": "Feed",
+    "explore": "Explore",
+    "inbox": "Inbox",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "settings": "Settings",
+    "spaces": "Spaces",
+    "events": "Events",
+    "leaderboard": "Leaderboard",
+    "bounties": "Bounties",
+    "jobs": "Jobs",
+    "mentorship": "Mentorship",
+    "premium": "Premium"
+  },
+
+  "feed": {
+    "greeting_morning": "Good morning, {name}",
+    "greeting_afternoon": "Good afternoon, {name}",
+    "greeting_evening": "Good evening, {name}",
+    "greeting_night": "Working late, {name}?",
+    "empty_title": "Your feed is empty",
+    "empty_desc": "Be the first to share an idea, or explore what others are working on."
+  },
+
+  "idea": {
+    "request_collab": "Request to collaborate",
+    "pitch_deck": "Pitch deck",
+    "remix": "Remix",
+    "report": "Report"
+  },
+
+  "auth": {
+    "sign_in": "Sign in",
+    "sign_up": "Sign up",
+    "sign_out": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "forgot_password": "Forgot password?",
+    "continue_as_guest": "Continue as guest"
+  }
+}

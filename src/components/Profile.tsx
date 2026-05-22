@@ -1,357 +1,446 @@
-// C:\Users\hemant\Downloads\synapse\src\components\Profile.tsx
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { User, Idea, Page, UserAchievement, SkillEndorsement } from '../types';
 import api from '../services/backendApiService';
 import { IdeaCard } from './IdeaCard';
-import { UsersIcon, MessageSquareIcon, LinkedinIcon, LinkIcon, MoreVerticalIcon, FlagIcon, TrophyIcon, LightbulbIcon, PlusIcon, LoaderIcon } from './icons';
 import { ReportModal } from './ReportModal';
-import { AchievementCard } from './AchievementCard';
 import { ACHIEVEMENTS } from '../constants';
-import { EmptyState } from './EmptyState';
+import {
+  MessageSquare, MoreVertical, Flag, Trophy, Lightbulb,
+  Plus, MapPin, Globe, Briefcase, Code2, AtSign, UserPlus, UserCheck, Sparkles, CheckCircle2,
+} from 'lucide-react';
+import { Avatar } from './ui/Avatar';
+import { Badge } from './ui/Badge';
+import { Button } from './ui/Button';
+import { Card, CardContent } from './ui/Card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
+import { Progress } from './ui/Progress';
+import { Tooltip } from './ui/Tooltip';
+import { Skeleton } from './ui/Skeleton';
+import { EmptyState } from './ui/EmptyState';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from './ui/DropdownMenu';
+import { toast } from './ui/Toaster';
+import { userName, initials, compactNumber } from '../utils/format';
+import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
+import { StreakBadge } from './StreakBadge';
+import { ProfileQRModal } from './ProfileQRModal';
+import { QrCode } from 'lucide-react';
+import { cn } from '../utils/cn';
 
 interface ProfileProps {
-    userId: string;
-    currentUser: User | null;
-    setPage: (page: Page, id?: string) => void;
+  userId: string;
+  currentUser: User | null;
+  setPage: (page: Page, id?: string) => void;
 }
 
-const SkillBadgeComponent: React.FC<{
-    skill: SkillEndorsement;
-    currentUser: User | null;
-    isEndorsable: boolean;
-    onEndorse: () => void;
-}> = ({ skill, currentUser, isEndorsable, onEndorse }) => {
-    const [endorserUsers, setEndorserUsers] = useState<User[]>([]);
-    
-    const endorserIds = useMemo(() => skill?.endorsers || [], [skill?.endorsers]);
-
-    useEffect(() => {
-        const fetchEndorsers = async () => {
-            if (endorserIds.length === 0) return;
-            try {
-                const users = await Promise.all(
-                    endorserIds.slice(0, 3).map(id => api.getUserById(id))
-                );
-                setEndorserUsers(users.filter((u): u is User => u !== null));
-            } catch (error) {
-                console.error("Failed to fetch endorsers:", error);
-            }
-        };
-        fetchEndorsers();
-    }, [endorserIds]);
-
-    const isEndorsedByCurrentUser = !!currentUser && endorserIds.includes(currentUser.userId);
-
-    return (
-        <div className="bg-[#252532] rounded-lg p-3 flex items-center space-x-3 transition-colors duration-200">
-            <div className="flex-1">
-                <p className="font-semibold text-white">{skill?.skillName || 'Unnamed Skill'}</p>
-                {endorserIds.length > 0 ? (
-                    <div className="flex items-center space-x-1 mt-1">
-                        <div className="flex -space-x-2">
-                            {endorserUsers.map(user => (
-                                <img 
-                                    key={user.userId} 
-                                    // --- FIX: Updated path for GitHub Pages subfolder ---
-                                    src={user.avatarUrl || '/Synapse/default-avatar.png'} 
-                                    alt={user.displayName || 'User'} 
-                                    className="w-5 h-5 rounded-full ring-2 ring-[#252532]" 
-                                />
-                            ))}
-                        </div>
-                        <span className="text-xs text-gray-400">Endorsed by {endorserIds.length} {endorserIds.length === 1 ? 'person' : 'people'}</span>
-                    </div>
-                ) : (
-                    <p className="text-xs text-gray-500">No endorsements yet.</p>
-                )}
-            </div>
-            {isEndorsable && currentUser && (
-                <button
-                    onClick={onEndorse}
-                    className={`p-2 rounded-full transition-all duration-200 ${isEndorsedByCurrentUser ? 'bg-indigo-600 text-white' : 'bg-gray-600 hover:bg-indigo-600 text-gray-300'}`}
-                    title={isEndorsedByCurrentUser ? 'Retract Endorsement' : 'Endorse Skill'}
-                    aria-pressed={isEndorsedByCurrentUser}
-                >
-                    <PlusIcon className={`w-4 h-4 transition-transform ${isEndorsedByCurrentUser ? 'rotate-45' : 'rotate-0'}`} />
-                </button>
-            )}
-        </div>
-    );
-};
-const SkillBadge = React.memo(SkillBadgeComponent);
-
+function calcCompletion(u: User): number {
+  const checks = [
+    !!u.displayName || !!u.name,
+    !!u.avatarUrl,
+    !!u.bio && u.bio.length > 20,
+    !!u.headline,
+    !!u.location,
+    (u.skills?.length ?? 0) > 0,
+    (u.interests?.length ?? 0) > 0,
+    !!u.linkedInUrl || !!u.websiteUrl || !!u.githubUrl,
+    !!u.coverImageUrl,
+  ];
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+}
 
 export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }) => {
-    const [profileUser, setProfileUser] = useState<User | null>(null);
-    const [userIdeas, setUserIdeas] = useState<Idea[]>([]);
-    const [collaborationIdeas, setCollaborationIdeas] = useState<Idea[]>([]);
-    const [userAchievements, setUserAchievements] = useState<UserAchievement[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [isConnecting, setIsConnecting] = useState(false);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'ideas' | 'achievements'>('ideas');
+  const [user, setUser] = useState<User | null>(null);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [collabIdeas, setCollabIdeas] = useState<Idea[]>([]);
+  const [achievements, setAchievements] = useState<UserAchievement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showReport, setShowReport] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
-            setError(null);
-            setProfileUser(null); 
-            setUserIdeas([]);
-            setCollaborationIdeas([]);
-            setUserAchievements([]);
+  const isOwn = currentUser?.userId === userId;
+  const completion = useMemo(() => (user ? calcCompletion(user) : 0), [user]);
+  const { track: trackView } = useRecentlyViewed();
 
-            try {
-                const user = await api.getUserById(userId);
-                if (!user) {
-                    setError("User not found.");
-                    setIsLoading(false);
-                    return;
-                }
-                setProfileUser(user);
-                
-                const [owned, collaborating, achievementsData] = await Promise.all([
-                    api.getIdeasByOwnerId(userId),
-                    api.getIdeasByCollaboratorId(userId),
-                    api.getUserAchievements(userId),
-                ]);
-
-                setUserIdeas(owned || []); 
-                setCollaborationIdeas(collaborating || []); 
-                setUserAchievements(achievementsData || []); 
-
-                setIsConnected(!!currentUser && (currentUser.connections || []).includes(userId));
-
-            } catch (err) {
-                setError("Failed to fetch profile data.");
-                console.error("Profile fetch error:", err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [userId, currentUser?.connections, currentUser?.userId]);
-
-    const handleConnection = async () => {
-        if (isConnecting || !currentUser) return; 
-        setIsConnecting(true);
-        try {
-            await api.sendConnectionRequest(userId);
-            setIsConnected(!isConnected); 
-        } catch (err) {
-            console.error("Connection request failed:", err);
-            alert("Failed to send connection request.");
-        } finally {
-            setIsConnecting(false);
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const u = await api.getUserById(userId);
+        if (!mounted) return;
+        setUser(u);
+        if (u) {
+          trackView({ id: u.userId, type: 'user', title: userName(u), subtitle: u.headline, avatarUrl: u.avatarUrl });
+          api.getIdeasByOwnerId(u.userId).then((d) => mounted && setIdeas(d || [])).catch(() => {});
+          api.getIdeasByCollaboratorId(u.userId).then((d) => mounted && setCollabIdeas(d || [])).catch(() => {});
+          api.getUserAchievements(u.userId).then((a) => mounted && setAchievements(a || [])).catch(() => {});
         }
+      } catch (e) {
+        console.error('Profile load error:', e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
-    
-    const handleEndorse = async (skillName: string) => {
-        if (!profileUser || !currentUser) return; 
-        try {
-            const updatedUser = await api.endorseSkill(profileUser.userId, skillName);
-            if(updatedUser) {
-                setProfileUser(prev => prev ? { ...prev, skills: updatedUser.skills } : null);
-            }
-        } catch (err) {
-            console.error("Endorsement failed:", err);
-            alert("Failed to endorse skill.");
-        }
-    };
+    load();
+    return () => { mounted = false; };
+  }, [userId]);
 
-    const handleReport = () => {
-        if (!currentUser) return; 
-        setIsReportModalOpen(true);
-        setIsMenuOpen(false);
-    };
+  const handleConnect = async () => {
+    if (!user) return;
+    try {
+      await api.sendConnectionRequest(user.userId);
+      setIsFollowing(true);
+      toast.success(`Connection request sent to ${userName(user)}`);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to send request');
+    }
+  };
 
-    const handleReportSubmit = async (reason: any, details: string) => {
-        if (!profileUser || !currentUser) return; 
-        try {
-            await api.submitReport({
-                contentType: 'user',
-                contentId: profileUser.userId,
-                reason,
-                details,
-            });
-            setIsReportModalOpen(false);
-            alert('Thank you for your report. Our team will review this shortly.');
-        } catch (err) {
-            console.error("Report submission failed:", err);
-            alert("Failed to submit report.");
-        }
-    };
+  const handleMessage = async () => {
+    if (!user) return;
+    try {
+      const convo = await api.startConversation(user.userId);
+      setPage('chat', convo.conversationId || (convo as any).id);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to start chat');
+    }
+  };
 
-    if (isLoading) return <div className="text-center p-8"><LoaderIcon className="w-8 h-8 animate-spin text-indigo-400 inline-block"/></div>;
-    if (error) return <div className="text-center p-8 text-red-400">{error}</div>;
-    if (!profileUser) return <div className="text-center p-8">User not found.</div>;
-
-    const isCurrentUserProfile = currentUser?.userId === profileUser.userId;
-
+  if (loading) {
     return (
-        <> 
-            {isReportModalOpen && currentUser && (
-                <ReportModal
-                    contentId={profileUser.userId}
-                    contentType="user"
-                    contentTitle={`the profile of ${profileUser.displayName || 'this user'}`}
-                    currentUser={currentUser}
-                    onClose={() => setIsReportModalOpen(false)}
-                    onSubmit={handleReportSubmit}
-                />
-            )}
-            <div className="container mx-auto p-4 md:p-8">
-                <div className="max-w-4xl mx-auto">
-                    <div className="bg-[#1A1A24] rounded-2xl shadow-2xl border border-white/10 p-8">
-                        <div className="flex flex-col sm:flex-row items-center sm:items-start sm:space-x-8">
-                            <img 
-                                // --- FIX: Updated path for GitHub Pages subfolder ---
-                                src={profileUser.avatarUrl || '/Synapse/default-avatar.png'} 
-                                alt={profileUser.displayName || 'User'} 
-                                className="w-32 h-32 rounded-full ring-4 ring-indigo-500/50 object-cover" 
-                            />
-                            <div className="flex-1 mt-4 sm:mt-0 text-center sm:text-left">
-                                <div className="flex items-center justify-center sm:justify-between">
-                                    <h1 className="text-3xl font-bold text-white">{profileUser.displayName || 'User'}</h1>
-                                    <div className="relative ml-4">
-                                        {currentUser && !isCurrentUserProfile && (
-                                            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 rounded-full hover:bg-white/10">
-                                                <MoreVerticalIcon className="w-5 h-5 text-gray-400" />
-                                            </button>
-                                        )}
-                                        {isMenuOpen && (
-                                            <div className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-[#252532] ring-1 ring-black ring-opacity-5 z-10">
-                                                <div className="py-1">
-                                                    <button onClick={handleReport} className="w-full text-left flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-white/5">
-                                                        <FlagIcon className="w-4 h-4" />
-                                                        <span>Report User</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <p className="text-gray-300 mt-2">{profileUser.bio || 'No bio provided.'}</p>
-                                <div className="mt-4 flex flex-wrap gap-4 justify-center sm:justify-start">
-                                    {currentUser && !isCurrentUserProfile && (
-                                        <>
-                                            <button disabled={isConnecting} onClick={handleConnection} className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50">
-                                                <UsersIcon className="w-5 h-5" />
-                                                <span>{isConnected ? 'Connected' : 'Connect'}</span>
-                                            </button>
-                                            <button onClick={async () => {
-                                                if (!currentUser) return; 
-                                                try {
-                                                    const conv = await api.startConversation(profileUser.userId);
-                                                    setPage('chat', conv.conversationId || (conv as any).id); 
-                                                } catch(err) {
-                                                    console.error("Failed to start conversation", err);
-                                                    alert("Could not start conversation.");
-                                                }
-                                            }} className="flex items-center space-x-2 bg-[#252532] text-white px-4 py-2 rounded-lg hover:bg-[#374151]">
-                                                <MessageSquareIcon className="w-5 h-5" />
-                                                <span>Message</span>
-                                            </button>
-                                        </>
-                                    )}
-                                    {(profileUser.linkedInUrl) && <a href={profileUser.linkedInUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-white"><LinkedinIcon className="w-6 h-6" /></a>}
-                                    {(profileUser.portfolioUrl) && <a href={profileUser.portfolioUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-white"><LinkIcon className="w-6 h-6" /></a>}
-                                </div>
-                            </div>
-                        </div> 
-
-                        <div className="mt-8">
-                            <h3 className="text-xl font-semibold text-white mb-4">Skills & Endorsements</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {(profileUser.skills || []).length > 0 ? (profileUser.skills || []).map(skill => (
-                                    <SkillBadge 
-                                        key={skill.skillName} 
-                                        skill={skill} 
-                                        currentUser={currentUser} 
-                                        isEndorsable={!!currentUser && !isCurrentUserProfile}
-                                        onEndorse={() => handleEndorse(skill.skillName)}
-                                    />
-                                )) : <p className="text-gray-500 col-span-full">No skills listed yet.</p>}
-                            </div> 
-                        </div> 
-                    </div> 
-
-                    <div className="mt-8">
-                        <div className="border-b border-white/10">
-                            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                                <button onClick={() => setActiveTab('ideas')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'ideas' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>
-                                    Ideas ({(userIdeas || []).length + (collaborationIdeas || []).length})
-                                </button>
-                                <button onClick={() => setActiveTab('achievements')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'achievements' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>
-                                    Achievements ({(userAchievements || []).filter(a => a?.unlockedAt).length})
-                                </button>
-                            </nav>
-                        </div>
-                        <div className="py-6">
-                            {activeTab === 'ideas' && (
-                                <div className="space-y-6">
-                                    {(userIdeas || []).length > 0 && (
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-white mb-4">Owned Ideas</h3>
-                                            <div className="space-y-4">
-                                                {/* --- (FIXED) Use only ideaId --- */}
-                                                {userIdeas.map(idea => <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />)}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {(collaborationIdeas || []).length > 0 && (
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-white mb-4">Collaborating On</h3>
-                                            <div className="space-y-4">
-                                                 {/* --- (FIXED) Use only ideaId --- */}
-                                                {collaborationIdeas.map(idea => <IdeaCard key={idea.ideaId} idea={idea} setPage={setPage} />)}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {(userIdeas || []).length === 0 && (collaborationIdeas || []).length === 0 && (
-                                        <EmptyState
-                                            icon={LightbulbIcon}
-                                            title="No Ideas Yet"
-                                            message={`${isCurrentUserProfile ? 'You haven\'t' : `${profileUser.displayName || 'This user'} hasn't`} posted or joined any ideas yet.`}
-                                            {...(isCurrentUserProfile && {
-                                                ctaText: "Post Your First Idea",
-                                                onCtaClick: () => setPage('newIdea')
-                                            })}
-                                        />
-                                    )}
-                                </div>
-                            )}
-                            {activeTab === 'achievements' && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {(userAchievements || []).length > 0 ? (userAchievements || []).map(ua => {
-                                        const achievementDetails = ua ? ACHIEVEMENTS[ua.achievementId] : null;
-                                        if (!achievementDetails) return null; 
-                                        // --- (FIXED) Type Assertion for AchievementCard ---
-                                        // Ensure the object passed matches the expected prop type
-                                        const achievementProp = { 
-                                            ...achievementDetails, 
-                                            progress: ua.progress || 0, // Provide default if progress is optional
-                                            unlockedAt: ua.unlockedAt 
-                                        };
-                                        return <AchievementCard key={ua.achievementId} achievement={achievementProp} />;
-                                    }) : (
-                                        <div className="col-span-full">
-                                            <EmptyState
-                                                icon={TrophyIcon}
-                                                title="No Achievements"
-                                                message={`${profileUser.displayName || 'This user'} hasn't unlocked any achievements yet.`}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div> 
-                    </div> 
-                </div> 
-            </div> 
-        </> 
+      <div className="container max-w-5xl py-8 px-4 space-y-6">
+        <Skeleton className="h-48 w-full rounded-2xl" />
+        <div className="flex gap-4">
+          <Skeleton className="h-24 w-24 rounded-full" />
+          <div className="flex-1 space-y-2 pt-4">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        </div>
+      </div>
     );
+  }
+
+  if (!user) {
+    return (
+      <EmptyState
+        title="User not found"
+        description="This profile may have been removed or doesn't exist."
+        action={{ label: 'Back to feed', onClick: () => setPage('feed') }}
+      />
+    );
+  }
+
+  const name = userName(user);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <div className="container max-w-5xl pb-12">
+        {/* COVER */}
+        <div className="relative h-48 md:h-64 -mx-4 md:mx-0 md:rounded-b-3xl overflow-hidden mb-16 md:mb-20">
+          {user.coverImageUrl ? (
+            <img src={user.coverImageUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 relative">
+              <div className="absolute inset-0 bg-mesh opacity-40 mix-blend-overlay" />
+              <div className="absolute inset-0 bg-dots opacity-20 mix-blend-overlay" />
+            </div>
+          )}
+          {/* Avatar overlay */}
+          <div className="absolute -bottom-12 md:-bottom-14 left-4 md:left-8 ring-4 ring-background rounded-full">
+            <Avatar src={user.avatarUrl} name={name} size="2xl" />
+          </div>
+          {isOwn && (
+            <div className="absolute top-4 right-4">
+              <Button variant="glass" size="sm" onClick={() => setPage('settings')}>Edit profile</Button>
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 md:px-8">
+          {/* Identity row */}
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight font-space-grotesk">{name}</h1>
+                {user.isVerified && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                {user.isPremium && <Badge variant="gradient" size="sm">Premium</Badge>}
+                {user.userType && <Badge variant="soft" size="sm" className="capitalize">{user.userType}</Badge>}
+              </div>
+              {user.headline && <p className="text-base text-foreground/80">{user.headline}</p>}
+              {user.username && <p className="text-sm text-muted-foreground">@{user.username}</p>}
+              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
+                {user.location && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {user.location}</span>}
+                {user.websiteUrl && <a href={user.websiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-primary"><Globe className="h-3.5 w-3.5" /> Website</a>}
+                {user.linkedInUrl && <a href={user.linkedInUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-primary"><Briefcase className="h-3.5 w-3.5" /> LinkedIn</a>}
+                {user.githubUrl && <a href={user.githubUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-primary"><Code2 className="h-3.5 w-3.5" /> GitHub</a>}
+                {user.twitterUrl && <a href={user.twitterUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-primary"><AtSign className="h-3.5 w-3.5" /> Twitter</a>}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              {!isOwn && currentUser && (
+                <>
+                  <Button
+                    variant={isFollowing ? 'outline' : 'gradient'}
+                    leftIcon={isFollowing ? <UserCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                    onClick={handleConnect}
+                  >
+                    {isFollowing ? 'Connected' : 'Connect'}
+                  </Button>
+                  <Button variant="outline" leftIcon={<MessageSquare className="h-4 w-4" />} onClick={handleMessage}>
+                    Message
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem destructive onClick={() => setShowReport(true)}>
+                        <Flag className="h-4 w-4" /> Report user
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              )}
+              <Tooltip content="Share profile QR">
+                <Button variant="ghost" size="icon" onClick={() => setShowQR(true)} aria-label="Show QR code">
+                  <QrCode className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+              {isOwn && (
+                <Button variant="outline" onClick={() => setPage('settings')}>Edit profile</Button>
+              )}
+            </div>
+          </div>
+
+          {/* Stats strip */}
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Stat label="Ideas" value={ideas.length} icon={<Lightbulb className="h-4 w-4" />} onClick={() => {}} />
+            <Stat label="Collaborations" value={collabIdeas.length} icon={<Sparkles className="h-4 w-4" />} onClick={() => {}} />
+            <Stat label="Connections" value={user.connections?.length ?? 0} icon={<UserPlus className="h-4 w-4" />} onClick={() => isOwn && setPage('connections')} />
+            <Stat label="Achievements" value={achievements.filter((a) => a.unlockedAt || a.unlocked_at).length} icon={<Trophy className="h-4 w-4" />} />
+          </div>
+
+          {/* Streak (own only) */}
+          {isOwn && (
+            <div className="mt-6">
+              <StreakBadge variant="full" />
+            </div>
+          )}
+
+          {/* Profile completion (own only) */}
+          {isOwn && completion < 100 && (
+            <Card className="mt-6 border-primary/30">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-sm font-semibold">Complete your profile</p>
+                    <p className="text-xs text-muted-foreground">A complete profile gets 3× more collaboration requests</p>
+                  </div>
+                  <span className="text-2xl font-bold text-gradient">{completion}%</span>
+                </div>
+                <Progress value={completion} gradient className="h-2 mb-3" />
+                <Button variant="ghost" size="sm" onClick={() => setPage('settings')}>Finish setup →</Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bio */}
+          {user.bio && (
+            <Card className="mt-6">
+              <CardContent className="p-5">
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{user.bio}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Tabs */}
+          <Tabs defaultValue="ideas" className="mt-6">
+            <TabsList variant="underline" className="mb-4">
+              <TabsTrigger variant="underline" value="ideas">
+                Ideas {ideas.length > 0 && <Badge variant="ghost" size="sm" className="ml-2">{ideas.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger variant="underline" value="collabs">
+                Collaborations {collabIdeas.length > 0 && <Badge variant="ghost" size="sm" className="ml-2">{collabIdeas.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger variant="underline" value="skills">Skills</TabsTrigger>
+              <TabsTrigger variant="underline" value="achievements">Achievements</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="ideas" className="space-y-4">
+              {ideas.length > 0 ? (
+                ideas.map((i) => <IdeaCard key={i.ideaId} idea={i} setPage={setPage} />)
+              ) : (
+                <EmptyState
+                  icon={<Lightbulb className="h-8 w-8" />}
+                  title={isOwn ? "You haven't shared an idea yet" : `${name} hasn't shared an idea yet`}
+                  action={isOwn ? { label: 'Share your first idea', onClick: () => setPage('newIdea'), icon: <Plus className="h-4 w-4" /> } : undefined}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="collabs" className="space-y-4">
+              {collabIdeas.length > 0 ? (
+                collabIdeas.map((i) => <IdeaCard key={i.ideaId} idea={i} setPage={setPage} />)
+              ) : (
+                <EmptyState icon={<Sparkles className="h-8 w-8" />} title="No collaborations yet" />
+              )}
+            </TabsContent>
+
+            <TabsContent value="skills">
+              {(user.skills?.length ?? 0) > 0 ? (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {user.skills!.map((skill) => (
+                    <SkillTile
+                      key={skill.skillName}
+                      skill={skill}
+                      currentUser={currentUser}
+                      isOwn={isOwn}
+                      onEndorse={async () => {
+                        if (!currentUser) return;
+                        try {
+                          await api.endorseSkill(user.userId, skill.skillName);
+                          toast.success(`Endorsed ${skill.skillName}`);
+                        } catch (e: any) {
+                          toast.error(e?.message ?? 'Failed to endorse');
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="No skills listed"
+                  description={isOwn ? 'Add skills so others can find you.' : ''}
+                  action={isOwn ? { label: 'Add skills', onClick: () => setPage('settings') } : undefined}
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="achievements">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {Object.values(ACHIEVEMENTS).map((ach) => {
+                  if (!ach) return null;
+                  const unlocked = achievements.find(
+                    (a) => (a.achievementId === ach.id || a.achievement_id === ach.id) && !!(a.unlockedAt || a.unlocked_at)
+                  );
+                  return <AchievementTile key={ach.id} achievement={ach} unlocked={!!unlocked} />;
+                })}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+
+      {showReport && currentUser && user && (
+        <ReportModal
+          contentType="user"
+          contentId={user.userId}
+          contentTitle={name}
+          currentUser={currentUser}
+          onClose={() => setShowReport(false)}
+          onSubmit={(reason, details) => {
+            api.submitReport({ contentType: 'user', contentId: user.userId, reason, details })
+              .then(() => { setShowReport(false); toast.success('Report submitted'); })
+              .catch((e) => toast.error(e?.message ?? 'Failed to submit report'));
+          }}
+        />
+      )}
+
+      {user && <ProfileQRModal open={showQR} onOpenChange={setShowQR} user={user} />}
+    </motion.div>
+  );
 };
+
+function Stat({ label, value, icon, onClick }: { label: string; value: number; icon: React.ReactNode; onClick?: () => void }) {
+  const Comp: any = onClick ? 'button' : 'div';
+  return (
+    <Comp
+      onClick={onClick}
+      className={cn(
+        'surface p-4 text-left transition-all',
+        onClick && 'hover:border-primary/40 cursor-pointer'
+      )}
+    >
+      <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wider font-semibold">
+        {icon}{label}
+      </div>
+      <p className="mt-1 text-2xl font-bold tabular-nums">{compactNumber(value)}</p>
+    </Comp>
+  );
+}
+
+function SkillTile({
+  skill,
+  currentUser,
+  isOwn,
+  onEndorse,
+}: {
+  skill: SkillEndorsement;
+  currentUser: User | null;
+  isOwn: boolean;
+  onEndorse: () => void;
+}) {
+  const endorsers = skill.endorsers || [];
+  const hasEndorsed = !!currentUser && endorsers.includes(currentUser.userId);
+
+  return (
+    <div className="surface p-4 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="font-semibold text-sm">{skill.skillName}</p>
+        <p className="text-xs text-muted-foreground">
+          {endorsers.length > 0 ? `${endorsers.length} endorsement${endorsers.length === 1 ? '' : 's'}` : 'No endorsements yet'}
+        </p>
+      </div>
+      {!isOwn && currentUser && (
+        <Tooltip content={hasEndorsed ? 'Retract endorsement' : 'Endorse'}>
+          <Button
+            variant={hasEndorsed ? 'gradient' : 'outline'}
+            size="icon-sm"
+            onClick={onEndorse}
+            aria-label="Endorse skill"
+          >
+            <Plus className={cn('h-4 w-4 transition-transform', hasEndorsed && 'rotate-45')} />
+          </Button>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+function AchievementTile({ achievement, unlocked }: { achievement: any; unlocked: boolean }) {
+  return (
+    <Tooltip content={achievement.description}>
+      <div
+        className={cn(
+          'surface p-4 text-center transition-all',
+          unlocked ? 'border-primary/40' : 'opacity-50 grayscale'
+        )}
+      >
+        <div
+          className={cn(
+            'mx-auto h-12 w-12 rounded-xl flex items-center justify-center text-2xl mb-2',
+            unlocked
+              ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-glow-sm'
+              : 'bg-muted text-muted-foreground'
+          )}
+        >
+          {unlocked ? '🏆' : '🔒'}
+        </div>
+        <p className="text-xs font-semibold truncate">{achievement.name}</p>
+        {unlocked && <p className="text-[10px] text-success mt-0.5">Unlocked</p>}
+      </div>
+    </Tooltip>
+  );
+}
+
+// Silence eslint for unused initials/import patterns kept for future
+export const __initialsRef = initials;

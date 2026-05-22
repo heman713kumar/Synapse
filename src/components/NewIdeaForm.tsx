@@ -1,413 +1,521 @@
-// C:\Users\hemant\Downloads\synapse\src\components\NewIdeaForm.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Page, AchievementId, IdeaTemplate } from '../types';
-import { SECTORS, REGIONS, IDEA_TEMPLATES } from '../constants';
-// This import is correct, aliasing backendApiService as api
+import { SECTORS, REGIONS, IDEA_TEMPLATES, SKILLS } from '../constants';
 import api from '../services/backendApiService';
-import * as Icons from './icons';
+import {
+  ArrowLeft, ArrowRight, Sparkles, Check, X, Wand2, Tag as TagIcon,
+  Lightbulb, BookOpen, Star, Heart, Cpu, Plus, AlertTriangle,
+} from 'lucide-react';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
+import { Label } from './ui/Label';
+import { Badge } from './ui/Badge';
+import { Card, CardContent } from './ui/Card';
+import { Progress } from './ui/Progress';
+import { toast } from './ui/Toaster';
+import { cn } from '../utils/cn';
+import { AIIdeaCoach } from './AIIdeaCoach';
+import { useDraft, readDraftOnce, clearDraftByKey } from '../hooks/useDraft';
+import { checkContent } from '../utils/contentSafety';
 
 interface NewIdeaFormProps {
-    setPage: (page: Page, id?: string) => void;
-    setSelectedIdeaId: (id: string) => void;
-    onAchievementsUnlock: (achievementIds: AchievementId[]) => void;
+  setPage: (page: Page, id?: string) => void;
+  setSelectedIdeaId: (id: string) => void;
+  onAchievementsUnlock: (achievementIds: AchievementId[]) => void;
 }
 
-const TemplateCard: React.FC<{ template: IdeaTemplate; onSelect: () => void; }> = ({ template, onSelect }) => {
-    const Icon = Icons[template.icon];
-    return (
-        <button onClick={onSelect} className="bg-[#252532] p-6 rounded-2xl border-2 border-transparent hover:border-indigo-500 text-left w-full h-full flex flex-col transition-all duration-200 transform hover:-translate-y-1">
-            <Icon className="w-8 h-8 text-indigo-400 mb-3" />
-            <h3 className="font-bold text-lg text-white">{template.name}</h3>
-            <p className="text-sm text-gray-400 mt-1 flex-grow">{template.description}</p>
-        </button>
-    );
+const TEMPLATE_ICONS: Record<string, React.ElementType> = {
+  CpuIcon: Cpu,
+  BookOpenIcon: BookOpen,
+  StarIcon: Star,
+  HeartIcon: Heart,
 };
 
-const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => {
-    const lines = content.split('\n').filter(line => line.trim() !== '');
-    return (
-        <div className="prose prose-invert prose-p:text-gray-300 prose-headings:text-white prose-a:text-indigo-400 max-w-none space-y-2 text-left">
-            {lines.map((line, index) => {
-                if (line.startsWith('### ')) {
-                    return <h3 key={index} className="text-lg font-semibold text-indigo-300 pt-2">{line.substring(4)}</h3>;
-                }
-                if (line.startsWith('- **')) {
-                     const parts = line.substring(2).split(':**');
-                     if (parts.length >= 2) {
-                        return <p key={index}><strong className="text-gray-200">{parts[0]}</strong>: {parts.slice(1).join(':**')}</p>;
-                     }
-                     return <p key={index}>{line.substring(2)}</p>;
-                }
-                if (line.startsWith('- ')) {
-                    return <p key={index} className="pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-indigo-400">{line.substring(2)}</p>;
-                }
-                if (line.includes('**')) {
-                     const parts = line.split('**');
-                    return (
-                        <p key={index}>
-                            {parts.map((part, i) =>
-                                i % 2 === 1 ? <strong key={i}>{part}</strong> : part
-                            )}
-                        </p>
-                    );
-                }
-                return <p key={index}>{line}</p>;
-            })}
-        </div>
-    );
+const TEMPLATE_COLORS: Record<string, string> = {
+  startup: 'from-indigo-500 to-violet-500',
+  research: 'from-sky-500 to-blue-500',
+  creative: 'from-amber-500 to-orange-500',
+  impact: 'from-emerald-500 to-teal-500',
 };
+
+const TOTAL_STEPS = 4;
 
 export const NewIdeaForm: React.FC<NewIdeaFormProps> = ({ setPage, setSelectedIdeaId, onAchievementsUnlock }) => {
-    const [step, setStep] = useState(1);
-    const [selectedTemplate, setSelectedTemplate] = useState<IdeaTemplate | null>(null);
-    const [tags, setTags] = useState<string[]>([]);
-    const [currentTag, setCurrentTag] = useState('');
-    const [formData, setFormData] = useState({
-        title: '',
-        summary: '',
-        sector: SECTORS[0],
-        region: REGIONS[0],
-        problemStatement: '',
-        targetAudience: '',
-        resourcesNeeded: '',
-        timeline: '',
-        skillsLooking: '',
-        visionForSuccess: '',
+  // Restore draft on mount (one-shot read)
+  const initialDraft = React.useMemo(
+    () => readDraftOnce<{
+      title: string; summary: string; description: string;
+      sector: string; region: string; tags: string[]; requiredSkills: string[];
+    }>('new-idea'),
+    []
+  );
+  const [step, setStep] = useState(initialDraft ? 1 : 0);
+  const [template, setTemplate] = useState<IdeaTemplate | null>(null);
+  const [title, setTitle] = useState(initialDraft?.title ?? '');
+  const [summary, setSummary] = useState(initialDraft?.summary ?? '');
+  const [description, setDescription] = useState(initialDraft?.description ?? '');
+  const [sector, setSector] = useState(initialDraft?.sector ?? '');
+  const [region, setRegion] = useState(initialDraft?.region ?? '');
+  const [tags, setTags] = useState<string[]>(initialDraft?.tags ?? []);
+  const [tagInput, setTagInput] = useState('');
+  const [requiredSkills, setRequiredSkills] = useState<string[]>(initialDraft?.requiredSkills ?? []);
+  const [skillInput, setSkillInput] = useState('');
+  const [isAIWorking, setIsAIWorking] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [contentWarnings, setContentWarnings] = useState<string[]>([]);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  // Autosave draft to localStorage on change
+  useDraft('new-idea', { title, summary, description, sector, region, tags, requiredSkills });
+
+  // Toast once if we restored a draft
+  useEffect(() => {
+    if (initialDraft) toast('Draft restored', { icon: '📝' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS));
+  const prev = () => setStep((s) => Math.max(s - 1, 0));
+
+  const addTag = (raw: string) => {
+    const t = raw.trim().replace(/^#/, '');
+    if (!t || tags.includes(t)) return;
+    setTags((p) => [...p, t].slice(0, 8));
+    setTagInput('');
+  };
+
+  const toggleSkill = (s: string) => {
+    setRequiredSkills((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
+  };
+
+  const handleAIRefine = async () => {
+    if (!summary && !description) {
+      toast('Write a short summary first', { icon: '💡' });
+      return;
+    }
+    setIsAIWorking(true);
+    try {
+      const result = await api.refineSummary({ summary: summary || description.slice(0, 280) });
+      if (result?.refinedSummary) {
+        setSummary(result.refinedSummary);
+        toast.success('Summary refined ✨');
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? 'AI refine failed');
+    } finally {
+      setIsAIWorking(false);
+    }
+  };
+
+  const canContinue = () => {
+    if (step === 0) return true;
+    if (step === 1) return title.trim().length >= 3 && summary.trim().length >= 10;
+    if (step === 2) return true;
+    if (step === 3) return true;
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    // Content safety check across all text fields
+    const combined = `${title}\n${summary}\n${description}`;
+    const safety = checkContent(combined);
+    if (safety.level === 'block') {
+      setContentWarnings(safety.reasons);
+      toast.error('Please remove disallowed content before publishing');
+      return;
+    }
+    setContentWarnings(safety.reasons);
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        title: title.trim(),
+        summary: summary.trim(),
+        description: description.trim() || summary.trim(),
+        sector: sector || undefined,
+        region: region || undefined,
+        tags,
+        requiredSkills,
         isPublic: true,
-    });
-    const [isRefining, setIsRefining] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isValidating, setIsValidating] = useState(false);
-    const [validationResult, setValidationResult] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
+        progressStage: 'idea-stage' as const,
+        isAnonymous,
+      } as any;
+      const response = await api.addIdea(payload);
+      if (response.unlockedAchievements?.length) onAchievementsUnlock(response.unlockedAchievements);
+      toast.success('Your idea is live! 🎉');
+      clearDraftByKey('new-idea');
+      if (response.idea?.ideaId) {
+        setSelectedIdeaId(response.idea.ideaId);
+        setPage('ideaDetail', response.idea.ideaId);
+      } else {
+        setPage('feed');
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to publish idea');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-    const handleAddTag = () => {
-        if (currentTag.trim() && !tags.includes(currentTag.trim())) {
-            setTags([...tags, currentTag.trim()]);
-            setCurrentTag('');
-        }
-    };
-    const handleRemoveTag = (tagToRemove: string) => {
-        setTags(tags.filter(tag => tag !== tagToRemove));
-    };
-    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleAddTag();
-        }
-    };
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-        setFormData(prev => ({ ...prev, [name]: newValue }));
-        setError(null);
-    };
-
-    const handleRefineSummary = async () => {
-        if (!formData.summary) {
-            setError('Please enter a summary first');
-            return;
-        }
-        setIsRefining(true);
-        setError(null);
-        try {
-            // This API call is correct
-            const response = await api.refineSummary({ summary: formData.summary });
-            setFormData(prev => ({ ...prev, summary: response.refinedSummary || formData.summary }));
-        } catch (err: any) {
-            console.error('Refinement failed:', err);
-            setError(`Failed to refine summary: ${err.message || 'Please try again.'}`);
-        } finally {
-            setIsRefining(false);
-        }
-    };
-
-    const handleValidateIdea = async () => {
-        if (!formData.title || !formData.summary) {
-            setError('Please fill in title and summary first');
-            return;
-        }
-        setIsValidating(true);
-        setValidationResult(null);
-        setError(null);
-        try {
-            // This API call is correct
-            const response = await api.analyzeIdea({
-                title: formData.title,
-                description: formData.summary,
-                category: formData.sector
-            });
-
-            const analysis = response.analysis;
-            if (!analysis) {
-                throw new Error("Received empty analysis from backend.");
-            }
-
-            const formattedResult = `
-### AI Validation Report
-
-**Feasibility:** ${analysis.feasibility?.score ?? 'N/A'}/10 (${analysis.feasibility?.reason ?? 'No reason provided'})
-**Innovation:** ${analysis.innovation?.score ?? 'N/A'}/10 (${analysis.innovation?.reason ?? 'No reason provided'})
-**Market Potential:** ${analysis.marketPotential?.score ?? 'N/A'}/10 (${analysis.marketPotential?.reason ?? 'No reason provided'})
-
-#### SWOT Analysis (Example based on ai.service.ts):
-- **Strengths:** ${(analysis.strengths ?? []).join(', ') || 'None identified'}
-- **Weaknesses:** ${(analysis.weaknesses ?? []).join(', ') || 'None identified'}
-- **Opportunities:** ${(analysis.opportunities ?? []).join(', ') || 'None identified'}
-- **Threats:** ${(analysis.threats ?? []).join(', ') || 'None identified'}
-
-#### Recommendations:
-${(analysis.recommendations ?? []).map((rec: string) => `- ${rec}`).join('\n') || 'No specific recommendations.'}
-
-**Est. Dev Time:** ${analysis.estimatedDevelopmentTime || 'Unknown'}
-            `.trim();
-
-            setValidationResult(formattedResult);
-
-        } catch (err: any) {
-            console.error('Validation failed:', err);
-            setError(`Failed to validate idea: ${err.message || 'Please try again.'}`);
-        } finally {
-            setIsValidating(false);
-        }
-    };
-
-    const handleSelectTemplate = (template: IdeaTemplate | null) => {
-        setSelectedTemplate(template);
-        setFormData(prev => ({
-            ...prev,
-            problemStatement: '', targetAudience: '', resourcesNeeded: '',
-            timeline: '', skillsLooking: '', visionForSuccess: '',
-        }));
-        setStep(2);
-    };
-
-    const handleSubmit = async () => {
-         if (!formData.title.trim() || !formData.summary.trim()) {
-             setError('Title and summary are required');
-             return;
-         }
-         setIsSubmitting(true);
-         setError(null);
-         try {
-             const newIdeaData = {
-                 // FIX: Removed ownerId. The backend gets this from the auth token.
-                 title: formData.title.trim(),
-                 description: formData.summary.trim(),
-                 tags: tags,
-                 category: formData.sector,
-                 stage: 'idea',
-                 isPublic: formData.isPublic,
-                 questionnaire: {
-                    problemStatement: formData.problemStatement,
-                    targetAudience: formData.targetAudience,
-                    resourcesNeeded: formData.resourcesNeeded,
-                    timeline: formData.timeline,
-                    skillsLooking: formData.skillsLooking,
-                    visionForSuccess: formData.visionForSuccess,
-                 }
-                 // region: formData.region, // Add if backend supports
-                 // requiredSkills: [], // Add if backend supports
-             };
-
-             const { idea: createdIdea, unlockedAchievements } = await api.addIdea(newIdeaData);
-
-             onAchievementsUnlock(unlockedAchievements || []);
-             alert("Your idea has been published!");
-
-             setSelectedIdeaId(createdIdea.ideaId);
-             // --- FIX: Navigate to 'ideaBoard' to show the visual board for the new idea ---
-             setPage('ideaBoard', createdIdea.ideaId);
-
-         } catch (err: any) {
-             console.error('Publish idea failed:', err);
-             setError(`Failed to publish idea: ${err.message || 'Please try again.'}`);
-         } finally {
-             setIsSubmitting(false);
-         }
-     };
-
-
-    const nextStep = () => {
-        if (step === 2 && (!formData.title.trim() || !formData.summary.trim())) {
-            setError('Title and summary are required');
-            return;
-        }
-        setError(null);
-        setStep(s => s + 1);
-    };
-    const prevStep = () => {
-        setError(null);
-        setStep(s => s - 1);
-    };
-    const totalSteps = 4;
-
-    const inputBaseClass = "mt-1 block w-full bg-[#252532] border-2 border-[#374151] rounded-lg shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500";
-    const textAreaClass = `${inputBaseClass} min-h-[80px]`;
-
-    const defaultPrompts = {
-        problemStatement: 'What specific problem does this idea solve?',
-        targetAudience: 'Who is the primary target audience or user group?',
-        resourcesNeeded: 'What key resources (skills, funding, tech) are needed for an MVP?',
-        timeline: 'What is a rough timeline for the initial phase (e.g., 3-6 months)?',
-        skillsLooking: 'What skills are crucial for collaborators?',
-        visionForSuccess: 'What does success look like in 1-3 years?',
-    };
-    const prompts = selectedTemplate?.questionnairePrompts || defaultPrompts;
-
-
-    const renderStep = () => {
-        switch (step) {
-            case 1: // Template Selection
-                return (
-                    <div className="space-y-6 animate-fadeInUp">
-                        <h2 className="text-2xl font-semibold text-white text-center">Step 1: Choose a Template</h2>
-                        <p className="text-center text-gray-400">Select a template to guide your ideation, or start fresh.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                           {IDEA_TEMPLATES.map(template => (
-                               <TemplateCard key={template.id} template={template} onSelect={() => handleSelectTemplate(template)} />
-                           ))}
-                        </div>
-                        <div className="text-center pt-4">
-                            <button onClick={() => handleSelectTemplate(null)} className="text-indigo-400 hover:text-indigo-300 font-semibold p-2">
-                                Or start with a Blank Canvas &rarr;
-                            </button>
-                        </div>
-                    </div>
-                );
-            case 2: // Basic Information
-                return (
-                    <div className="space-y-6 animate-fadeInUp">
-                        <h2 className="text-xl font-semibold text-white">Step 2: Core Idea Details</h2>
-                        <div>
-                            <label htmlFor="title" className="block text-sm font-medium text-gray-300">Idea Title *</label>
-                            <input id="title" type="text" name="title" value={formData.title} onChange={handleInputChange} className={inputBaseClass} placeholder="Enter a compelling title" />
-                        </div>
-                        <div>
-                            <label htmlFor="summary" className="block text-sm font-medium text-gray-300">Summary / Description *</label>
-                            <textarea id="summary" name="summary" value={formData.summary} onChange={handleInputChange} rows={4} className={textAreaClass} placeholder="Describe your idea clearly..."></textarea>
-                             <button type="button" onClick={handleRefineSummary} disabled={isRefining || !formData.summary.trim()} className="mt-2 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-[#1A1A24] disabled:opacity-50 transition-transform active:scale-95">
-                                <Icons.SparklesIcon className="w-4 h-4 mr-1"/>
-                                {isRefining ? 'Refining...' : 'Refine with AI'}
-                            </button>
-                        </div>
-                        <div className="space-y-2">
-                            <label htmlFor="tags-input" className="block text-sm font-medium text-gray-300">Tags</label>
-                            <div className="flex flex-wrap gap-2 mb-2 min-h-[2rem]">
-                                {tags.map((tag) => (
-                                    <div key={tag} className="flex items-center space-x-1 bg-indigo-900/30 text-indigo-200 px-2.5 py-0.5 rounded-full text-sm">
-                                        <span>{tag}</span>
-                                        <button type="button" onClick={() => handleRemoveTag(tag)} className="text-indigo-400 hover:text-indigo-200">&times;</button>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="flex space-x-2">
-                                <input id="tags-input" type="text" value={currentTag} onChange={(e) => setCurrentTag(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add relevant tags (e.g., AI, HealthTech)" className={`${inputBaseClass} flex-1`} />
-                                <button type="button" onClick={handleAddTag} className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 text-sm">Add Tag</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label htmlFor="sector" className="block text-sm font-medium text-gray-300">Primary Sector/Category</label>
-                            <select id="sector" name="sector" value={formData.sector} onChange={handleInputChange} className={inputBaseClass}>
-                                {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div className="flex items-center space-x-2 pt-2">
-                           <input type="checkbox" id="isPublic" name="isPublic" checked={formData.isPublic} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-500 text-indigo-600 focus:ring-indigo-500" />
-                           <label htmlFor="isPublic" className="text-sm text-gray-300">Make this idea public</label>
-                        </div>
-                    </div>
-                );
-            case 3: // Guided Questionnaire
-                return (
-                    <div className="space-y-6 animate-fadeInUp">
-                        <h2 className="text-xl font-semibold text-white">Step 3: Deeper Dive {selectedTemplate ? `(${selectedTemplate.name})` : ''}</h2>
-                        <p className="text-sm text-gray-400 -mt-4">Answer these questions to flesh out your idea.</p>
-                        <div><label htmlFor="problemStatement" className="block text-sm font-medium text-gray-300">{prompts.problemStatement}</label><textarea id="problemStatement" name="problemStatement" value={formData.problemStatement} onChange={handleInputChange} rows={3} className={textAreaClass}></textarea></div>
-                        <div><label htmlFor="targetAudience" className="block text-sm font-medium text-gray-300">{prompts.targetAudience}</label><textarea id="targetAudience" name="targetAudience" value={formData.targetAudience} onChange={handleInputChange} rows={3} className={textAreaClass}></textarea></div>
-                        <div><label htmlFor="resourcesNeeded" className="block text-sm font-medium text-gray-300">{prompts.resourcesNeeded}</label><textarea id="resourcesNeeded" name="resourcesNeeded" value={formData.resourcesNeeded} onChange={handleInputChange} rows={3} className={textAreaClass}></textarea></div>
-                        <div><label htmlFor="timeline" className="block text-sm font-medium text-gray-300">{prompts.timeline}</label><input id="timeline" type="text" name="timeline" value={formData.timeline} onChange={handleInputChange} className={inputBaseClass} /></div>
-                        <div><label htmlFor="skillsLooking" className="block text-sm font-medium text-gray-300">{prompts.skillsLooking}</label><input id="skillsLooking" type="text" name="skillsLooking" value={formData.skillsLooking} onChange={handleInputChange} className={inputBaseClass} /></div>
-                        <div><label htmlFor="visionForSuccess" className="block text-sm font-medium text-gray-300">{prompts.visionForSuccess}</label><textarea id="visionForSuccess" name="visionForSuccess" value={formData.visionForSuccess} onChange={handleInputChange} rows={3} className={textAreaClass}></textarea></div>
-                    </div>
-                );
-            case 4: // AI Validation & Publish
-                return (
-                    <div className="space-y-6 animate-fadeInUp">
-                        <h2 className="text-xl font-semibold text-white">Step 4: AI Validation & Final Review</h2>
-                        <p className="text-sm text-gray-400 -mt-4">Optionally, get instant AI feedback before publishing.</p>
-                        <div className="text-center pt-2">
-                            <button type="button" onClick={handleValidateIdea} disabled={isValidating || !formData.title.trim() || !formData.summary.trim()} className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-sky-500 to-cyan-500 hover:opacity-90 disabled:opacity-50 transition-transform active:scale-95">
-                                <Icons.CpuIcon className="w-5 h-5 mr-2"/>
-                                {isValidating ? 'Analyzing...' : 'Validate with AI'}
-                            </button>
-                        </div>
-                        {isValidating && (
-                            <div className="text-center py-4">
-                                <Icons.LoaderIcon className="w-6 h-6 animate-spin mx-auto text-indigo-400"/>
-                                <p className="text-gray-400 mt-2 text-sm">AI analyzing feasibility, market fit, and innovation...</p>
-                            </div>
-                        )}
-                        {validationResult && (
-                            <div className="bg-black/20 p-5 rounded-lg border border-white/10 mt-4">
-                                <h3 className="text-lg font-bold text-white mb-3 text-center">AI Validation Report</h3>
-                                <MarkdownRenderer content={validationResult} />
-                            </div>
-                        )}
-                        <p className="text-center text-gray-400 pt-4">Ready to share your vision?</p>
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
-
+  // STEP 0: Template picker
+  if (step === 0) {
     return (
-        <div className="container mx-auto p-4 md:p-8 max-w-3xl animate-fadeInUp">
-            <div className="bg-[#1A1A24]/70 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-2xl border border-white/10">
-                <h1 className="text-2xl md:text-3xl font-bold mb-6 text-white text-center">Share Your New Idea</h1>
-                {error && (
-                    <div className="mb-4 p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-red-200 text-sm">
-                        {error}
-                    </div>
-                )}
-                {step > 1 && (
-                    <div className="mb-8">
-                        <div className="w-full bg-[#252532] rounded-full h-2">
-                            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500" style={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}></div>
-                        </div>
-                        <ol className="flex justify-between text-xs text-gray-500 mt-1 px-1">
-                            <li className={`w-1/3 text-center ${step >= 2 ? 'text-indigo-400 font-medium' : ''}`}>Details</li>
-                            <li className={`w-1/3 text-center ${step >= 3 ? 'text-indigo-400 font-medium' : ''}`}>Questions</li>
-                            <li className={`w-1/3 text-center ${step >= 4 ? 'text-indigo-400 font-medium' : ''}`}>Publish</li>
-                        </ol>
-                    </div>
-                )}
-                {renderStep()}
-                <div className="mt-8 flex justify-between items-center">
-                    {step > 1 ? (
-                        <button onClick={prevStep} className="bg-[#374151] text-white px-5 py-2 rounded-lg hover:bg-[#4b5563] transition-colors text-sm font-medium">Back</button>
-                    ) : (
-                        <div className="w-20"></div>
-                    )}
-                    {step < totalSteps ?
-                        (step > 1 &&
-                            <button onClick={nextStep} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-5 py-2 rounded-lg shadow-md hover:opacity-90 transition-opacity text-sm font-medium">Next</button>
-                        )
-                        : (
-                            <button
-                                onClick={handleSubmit}
-                                disabled={isSubmitting || !formData.title.trim() || !formData.summary.trim()}
-                                className="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-6 py-2.5 rounded-lg shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-base font-semibold"
-                            >
-                                {isSubmitting ? 'Publishing...' : 'Publish Idea'}
-                            </button>
-                        )
-                    }
-                    {step === 1 && <div className="w-20"></div>}
-                </div>
+      <div className="container max-w-4xl py-8 px-4">
+        <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={() => setPage('feed')} className="mb-6">
+          Back
+        </Button>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="text-center mb-8">
+            <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-glow mb-4">
+              <Sparkles className="h-7 w-7" />
             </div>
-        </div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-space-grotesk">Share a new idea</h1>
+            <p className="mt-2 text-muted-foreground">Pick a template to get started, or start from scratch.</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={() => { setTemplate(null); next(); }}
+              className="surface surface-hover p-5 text-left flex flex-col items-start"
+            >
+              <div className="h-11 w-11 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground mb-3">
+                <Plus className="h-5 w-5" />
+              </div>
+              <h3 className="font-semibold">Start from scratch</h3>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Free-form blank canvas. No prompts.</p>
+            </button>
+
+            {IDEA_TEMPLATES.map((t: IdeaTemplate) => {
+              const Icon = TEMPLATE_ICONS[t.icon] ?? Lightbulb;
+              const color = TEMPLATE_COLORS[t.id] ?? 'from-indigo-500 to-violet-500';
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => { setTemplate(t); next(); }}
+                  className="surface surface-hover p-5 text-left flex flex-col items-start group"
+                >
+                  <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${color} text-white flex items-center justify-center mb-3 shadow-md`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="font-semibold">{t.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{t.description}</p>
+                  <span className="text-xs font-medium text-primary mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Use template →
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      </div>
     );
+  }
+
+  // STEPS 1-4
+  return (
+    <div className="container max-w-2xl py-8 px-4">
+      <Button variant="ghost" size="sm" leftIcon={<ArrowLeft className="h-4 w-4" />} onClick={prev} className="mb-4">
+        Back
+      </Button>
+
+      {/* Progress */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2 text-xs">
+          <span className="font-semibold text-muted-foreground uppercase tracking-wider">Step {step} of {TOTAL_STEPS}</span>
+          <span className="text-muted-foreground">{Math.round((step / TOTAL_STEPS) * 100)}%</span>
+        </div>
+        <Progress value={(step / TOTAL_STEPS) * 100} gradient />
+      </div>
+
+      <Card>
+        <CardContent className="p-6 md:p-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* STEP 1: Basics */}
+              {step === 1 && (
+                <>
+                  <h2 className="text-2xl font-bold tracking-tight font-space-grotesk">The big idea</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Give your idea a title and short summary.</p>
+                  <div className="mt-6 space-y-5">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="title" required>Title</Label>
+                      <Input
+                        id="title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder={template?.questionnairePrompts?.problemStatement ?? 'A clear, catchy name for your idea'}
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-baseline justify-between">
+                        <Label htmlFor="summary" required>Summary</Label>
+                        <span className="text-xs text-muted-foreground">{summary.length}/280</span>
+                      </div>
+                      <Textarea
+                        id="summary"
+                        value={summary}
+                        onChange={(e) => setSummary(e.target.value)}
+                        placeholder="One or two sentences that explain what it is and why it matters."
+                        rows={3}
+                        maxLength={280}
+                        autoResize
+                      />
+                      <div className="flex justify-end pt-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leftIcon={<Wand2 className="h-3.5 w-3.5" />}
+                          loading={isAIWorking}
+                          onClick={handleAIRefine}
+                        >
+                          Refine with AI
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI Idea Coach — context-aware help */}
+                  <div className="mt-6">
+                    <AIIdeaCoach
+                      title={title}
+                      description={summary || description}
+                      category={sector}
+                      onApplySummary={(refined) => setSummary(refined)}
+                      onApplyTags={(suggested) => setTags((prev) => Array.from(new Set([...prev, ...suggested])).slice(0, 8))}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* STEP 2: Description */}
+              {step === 2 && (
+                <>
+                  <h2 className="text-2xl font-bold tracking-tight font-space-grotesk">Tell the full story</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Add as much detail as you want. You can edit later.</p>
+                  <div className="mt-6 space-y-1.5">
+                    <Label htmlFor="description">Full description</Label>
+                    <Textarea
+                      id="description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder={template ? Object.values(template.questionnairePrompts).join('\n\n') : 'Problem you\'re solving · Target audience · How it works · Inspiration · What you need help with…'}
+                      rows={10}
+                      autoResize
+                    />
+                    <p className="text-xs text-muted-foreground">Markdown supported · Optional but recommended</p>
+                  </div>
+                </>
+              )}
+
+              {/* STEP 3: Tags + Context */}
+              {step === 3 && (
+                <>
+                  <h2 className="text-2xl font-bold tracking-tight font-space-grotesk">Help people find it</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Tags, sector, and region help the right collaborators discover your idea.</p>
+                  <div className="mt-6 space-y-5">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="tags">
+                        Tags
+                        <span className="ml-1 text-xs text-muted-foreground font-normal">({tags.length}/8)</span>
+                      </Label>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {tags.map((t) => (
+                          <Badge key={t} variant="soft" size="default">
+                            #{t}
+                            <button onClick={() => setTags((p) => p.filter((x) => x !== t))} className="ml-1 hover:text-destructive">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                      <Input
+                        id="tags"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                            e.preventDefault();
+                            addTag(tagInput);
+                          }
+                        }}
+                        placeholder="Type a tag and press Enter (e.g. AI, sustainability, mobile)"
+                        leftIcon={<TagIcon className="h-4 w-4" />}
+                        disabled={tags.length >= 8}
+                      />
+                    </div>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="sector">Sector</Label>
+                        <select
+                          id="sector"
+                          value={sector}
+                          onChange={(e) => setSector(e.target.value)}
+                          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus-ring"
+                        >
+                          <option value="">Choose sector</option>
+                          {SECTORS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="region">Region</Label>
+                        <select
+                          id="region"
+                          value={region}
+                          onChange={(e) => setRegion(e.target.value)}
+                          className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm focus-ring"
+                        >
+                          <option value="">Anywhere / Global</option>
+                          {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* STEP 4: Skills + review */}
+              {step === 4 && (
+                <>
+                  <h2 className="text-2xl font-bold tracking-tight font-space-grotesk">Who can help?</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Pick the skills you're looking for — leave empty if you're not seeking collaborators yet.</p>
+                  <div className="mt-6 space-y-3">
+                    {requiredSkills.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {requiredSkills.map((s) => (
+                          <Badge key={s} variant="gradient" size="default">
+                            {s}
+                            <button onClick={() => toggleSkill(s)} className="ml-1 hover:opacity-70">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    <Input
+                      placeholder="Search skills…"
+                      value={skillInput}
+                      onChange={(e) => setSkillInput(e.target.value)}
+                    />
+                    <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto scrollbar-thin pr-1">
+                      {SKILLS.filter((s) => s.toLowerCase().includes(skillInput.toLowerCase()))
+                        .slice(0, 30)
+                        .map((s) => {
+                          const active = requiredSkills.includes(s);
+                          return (
+                            <button
+                              key={s}
+                              onClick={() => toggleSkill(s)}
+                              className={cn(
+                                'px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
+                                active
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background border-border hover:border-primary/40'
+                              )}
+                            >
+                              {active && <Check className="inline h-3 w-3 mr-1" />}
+                              {s}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    <div className="rounded-lg bg-secondary/50 border border-border p-4 mt-4 space-y-1.5 text-sm">
+                      <div className="font-semibold mb-1">Almost there 👀</div>
+                      <p className="text-muted-foreground"><span className="font-semibold text-foreground">{title || '(untitled)'}</span></p>
+                      <p className="text-muted-foreground text-xs line-clamp-2">{summary}</p>
+                      {(tags.length > 0 || sector || region) && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {sector && <Badge variant="ghost" size="sm">{sector}</Badge>}
+                          {region && <Badge variant="ghost" size="sm">{region}</Badge>}
+                          {tags.map((t) => <Badge key={t} variant="soft" size="sm">#{t}</Badge>)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Anonymous toggle */}
+                    <label className="mt-4 flex items-start gap-3 p-4 rounded-lg border border-border hover:border-primary/30 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={isAnonymous}
+                        onChange={(e) => setIsAnonymous(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-input text-primary focus-ring"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">Post anonymously</p>
+                          <Badge variant="soft" size="sm">🕶️ Stealth</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">Hide your name and avatar on this idea. Useful for sensitive concepts. You can reveal yourself later.</p>
+                      </div>
+                    </label>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Content safety warnings */}
+          {contentWarnings.length > 0 && step === TOTAL_STEPS && (
+            <div className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+              <div className="flex items-center gap-1.5 text-warning font-semibold mb-1">
+                <AlertTriangle className="h-4 w-4" /> Heads up
+              </div>
+              <ul className="space-y-0.5 text-foreground/85">
+                {contentWarnings.map((w) => (
+                  <li key={w} className="text-xs">• {w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Nav */}
+          <div className="mt-8 flex items-center justify-between">
+            <Button variant="ghost" onClick={prev}>Back</Button>
+            {step < TOTAL_STEPS ? (
+              <Button
+                variant="gradient"
+                onClick={next}
+                disabled={!canContinue()}
+                rightIcon={<ArrowRight className="h-4 w-4" />}
+              >
+                Continue
+              </Button>
+            ) : (
+              <Button
+                variant="gradient"
+                size="lg"
+                onClick={handleSubmit}
+                loading={isSubmitting}
+                rightIcon={!isSubmitting ? <Sparkles className="h-4 w-4" /> : undefined}
+                disabled={!title.trim() || !summary.trim()}
+              >
+                Publish idea
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Step dots */}
+      <div className="mt-6 flex items-center justify-center gap-2">
+        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              'h-1.5 rounded-full transition-all',
+              i + 1 === step ? 'bg-primary w-8' : i + 1 < step ? 'bg-primary/60 w-1.5' : 'bg-border w-1.5'
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  );
 };

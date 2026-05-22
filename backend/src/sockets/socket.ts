@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import jwt, { Secret } from 'jsonwebtoken';
-import { query } from '../db/database.js';
+import { query } from '../db/database';
 
 // --- ADD MISSING INTERFACES (Fixes missing type declarations) ---
 
@@ -30,26 +30,32 @@ interface AuthSocket extends Socket {
 // CRITICAL: Fail-Fast Check for JWT Secret
 const JWT_SECRET: Secret = process.env.JWT_SECRET || '';
 if (!JWT_SECRET) {
-    console.error("FATAL ERROR: JWT_SECRET environment variable is missing for Socket.IO.");
-    // Allowing to fail in middleware for cleaner logging path
+    console.error("❌ FATAL ERROR: JWT_SECRET environment variable is missing for Socket.IO.");
+    console.error("Please set JWT_SECRET in your .env file");
+    process.exit(1);
 }
 
-// Helper class for security and reliability (using placeholder logic)
+// Helper class for security and reliability
 class SocketServiceHelpers {
     private messageCounts = new Map<string, number>();
     private lastReset = Date.now();
     private readonly RATE_LIMIT_SECONDS = 60;
     private readonly MESSAGE_LIMIT_PER_USER = 60;
+    // Track active connections
+    private activeConnections = new Map<string, number>();
 
     public canSendMessage(userId: string): boolean {
         const now = Date.now();
+        // Reset rate limit counter every RATE_LIMIT_SECONDS
         if (now - this.lastReset > this.RATE_LIMIT_SECONDS * 1000) {
+            console.log('📊 Rate limit counter reset');
             this.messageCounts.clear();
             this.lastReset = now;
         }
         
         const count = this.messageCounts.get(userId) || 0;
         if (count >= this.MESSAGE_LIMIT_PER_USER) { 
+            console.log(`⚠️ Rate limit exceeded for user ${userId}`);
             return false;
         }
         
@@ -65,6 +71,29 @@ class SocketServiceHelpers {
             .replace(/>/g, '&gt;')
             .trim();
         return sanitized.substring(0, MAX_MESSAGE_SIZE); 
+    }
+
+    // Track user connections for cleanup
+    public recordConnection(userId: string): void {
+        const count = (this.activeConnections.get(userId) || 0) + 1;
+        this.activeConnections.set(userId, count);
+    }
+
+    // Record disconnection
+    public recordDisconnection(userId: string): void {
+        const count = (this.activeConnections.get(userId) || 0) - 1;
+        if (count <= 0) {
+            // User has no more connections - cleanup
+            this.activeConnections.delete(userId);
+            this.messageCounts.delete(userId); // Clear rate limit for this user
+            console.log(`🧹 Cleaned up resources for disconnected user ${userId}`);
+        } else {
+            this.activeConnections.set(userId, count);
+        }
+    }
+
+    public getActiveConnections(): number {
+        return this.activeConnections.size;
     }
 }
 
@@ -124,6 +153,8 @@ export const setupSocketIO = (server: any) => {
     const authSocket = socket as AuthSocket; 
     
     console.log(`User ${authSocket.userId} connected`);
+    // CRITICAL: Track this connection for cleanup on disconnect
+    helpers.recordConnection(authSocket.userId);
 
     // Join rooms
     if (authSocket.userId) {
@@ -212,6 +243,9 @@ export const setupSocketIO = (server: any) => {
 
     socket.on('disconnect', () => {
       console.log(`User ${authSocket.userId} disconnected`);
+      // CRITICAL: Clean up rate limiting and connection state
+      helpers.recordDisconnection(authSocket.userId);
+      console.log(`📊 Active socket connections: ${helpers.getActiveConnections()}`);
     });
   });
 

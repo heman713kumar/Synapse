@@ -1,37 +1,63 @@
-
 import React from 'react';
-import { XIcon, UsersIcon } from './icons';
+import { Sparkles, ArrowRight, Lightbulb, Users, MessageSquare } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/Dialog';
+import { Button } from './ui/Button';
 
 interface LoginPromptModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onNavigateToLogin: () => void;
+  isOpen: boolean;
+  onClose: () => void;
+  onNavigateToLogin: () => void;
 }
 
+const PERKS = [
+  { icon: Lightbulb, label: 'Share your own ideas' },
+  { icon: Users, label: 'Join projects as a collaborator' },
+  { icon: MessageSquare, label: 'Chat, comment, and react' },
+];
+
 export const LoginPromptModal: React.FC<LoginPromptModalProps> = ({ isOpen, onClose, onNavigateToLogin }) => {
-    if (!isOpen) return null;
+  return (
+    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm text-center">
+        <DialogHeader className="items-center text-center">
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-glow mb-3">
+            <Sparkles className="h-7 w-7" />
+          </div>
+          <DialogTitle className="text-2xl font-bold tracking-tight font-space-grotesk">Join the conversation</DialogTitle>
+          <DialogDescription>
+            Sign up free in 30 seconds to unlock everything.
+          </DialogDescription>
+        </DialogHeader>
 
-    return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-            <div className="bg-[#1A1A24] rounded-2xl shadow-2xl border border-white/10 max-w-sm w-full p-8 relative text-center">
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white">
-                    <XIcon className="w-6 h-6" />
-                </button>
-                
-                <div className="w-16 h-16 rounded-full flex items-center justify-center bg-indigo-500/10 border-2 border-indigo-500/30 mx-auto">
-                    <UsersIcon className="w-8 h-8 text-indigo-400" />
-                </div>
+        <ul className="space-y-2 text-left">
+          {PERKS.map((p) => {
+            const Icon = p.icon;
+            return (
+              <li key={p.label} className="flex items-center gap-3 text-sm">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span>{p.label}</span>
+              </li>
+            );
+          })}
+        </ul>
 
-                <h2 className="text-2xl font-bold text-white mt-4">Join the Conversation</h2>
-                <p className="text-gray-400 my-4">Sign up or log in to like, comment, collaborate, and bring your ideas to life.</p>
-                
-                <button
-                    onClick={onNavigateToLogin}
-                    className="w-full mt-4 px-6 py-3 rounded-lg text-white font-semibold shadow-md bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 transition-opacity"
-                >
-                    Sign Up / Log In
-                </button>
-            </div>
+        <div className="space-y-2 mt-2">
+          <Button
+            variant="gradient"
+            fullWidth
+            size="lg"
+            rightIcon={<ArrowRight className="h-4 w-4" />}
+            onClick={() => { onClose(); onNavigateToLogin(); }}
+          >
+            Sign up / Sign in
+          </Button>
+          <Button variant="ghost" fullWidth onClick={onClose}>
+            Keep browsing
+          </Button>
         </div>
-    );
+      </DialogContent>
+    </Dialog>
+  );
 };

@@ -1,63 +1,71 @@
 {
   "short_name": "Synapse",
-  "name": "Synapse: Idea & Collaboration Platform",
-  "description": "A platform connecting people with ideas (Thinkers) to people who can execute those ideas (Doers), facilitating collaboration and bringing visions to reality.",
-  "icons": [
-    {
-      "src": "/Synapse/icons/icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/Synapse/icons/icon-512.png",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any maskable"
-    }
-  ],
+  "name": "Synapse — where ideas meet builders",
+  "description": "A collaborative platform where thinkers, doers, and investors turn ideas into shipped projects. Real-time discussion forums, AI idea coach, mentorship, and built-in project tools.",
+  "lang": "en",
+  "dir": "ltr",
+  "scope": "/Synapse/",
   "start_url": "/Synapse/",
+  "id": "/Synapse/",
   "display": "standalone",
-  "theme_color": "#1A1A24",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#6366F1",
   "background_color": "#0A0A0F",
-  "categories": ["business", "productivity"],
+  "categories": ["business", "productivity", "social", "education"],
+  "iarc_rating_id": "",
+  "prefer_related_applications": false,
+  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
+  "icons": [
+    { "src": "/Synapse/icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/Synapse/icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "/Synapse/icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "/Synapse/icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ],
   "screenshots": [
-    {
-      "src": "/Synapse/screenshots/screenshot-desktop-1.png",
-      "type": "image/png",
-      "sizes": "1280x720",
-      "form_factor": "wide",
-      "label": "Discover Innovative Ideas"
-    },
-    {
-      "src": "/Synapse/screenshots/screenshot-mobile-1.png",
-      "type": "image/png",
-      "sizes": "720x1280",
-      "form_factor": "narrow",
-      "label": "Collaborate with Doers"
-    }
+    { "src": "/Synapse/screenshots/screenshot-desktop-1.png", "type": "image/png", "sizes": "1280x720", "form_factor": "wide", "label": "Discover ideas with personalized feed" },
+    { "src": "/Synapse/screenshots/screenshot-mobile-1.png", "type": "image/png", "sizes": "720x1280", "form_factor": "narrow", "label": "Collaborate from anywhere" }
   ],
   "shortcuts": [
     {
-      "name": "New Idea",
+      "name": "New idea",
       "short_name": "New",
-      "description": "Start creating a new idea",
+      "description": "Start sharing a new idea",
       "url": "/Synapse/?action=new-idea",
       "icons": [{ "src": "/Synapse/icons/shortcut-new-96.png", "sizes": "96x96" }]
     },
     {
-      "name": "My Messages",
+      "name": "Messages",
       "short_name": "Inbox",
-      "description": "View your conversations",
+      "description": "Your conversations",
       "url": "/Synapse/?action=inbox",
       "icons": [{ "src": "/Synapse/icons/shortcut-inbox-96.png", "sizes": "96x96" }]
     },
     {
-      "name": "Explore Ideas",
+      "name": "Explore ideas",
       "short_name": "Explore",
-      "description": "Discover new ideas and projects",
+      "description": "Discover new ideas",
       "url": "/Synapse/?action=explore",
       "icons": [{ "src": "/Synapse/icons/shortcut-explore-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Quests & streaks",
+      "short_name": "Quests",
+      "description": "Your weekly challenges",
+      "url": "/Synapse/?action=quests",
+      "icons": [{ "src": "/Synapse/icons/shortcut-new-96.png", "sizes": "96x96" }]
     }
+  ],
+  "share_target": {
+    "action": "/Synapse/?action=new-idea",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "summary",
+      "url": "url"
+    }
+  },
+  "protocol_handlers": [
+    { "protocol": "web+synapse", "url": "/Synapse/?route=%s" }
   ]
 }

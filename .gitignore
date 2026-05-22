@@ -12,6 +12,33 @@ dist
 dist-ssr
 *.local
 
+# Environment variables - CRITICAL SECURITY
+.env
+.env.*
+!.env.example
+!.env.*.example
+.env.local
+.env.production
+.env.production.local
+.env.test.local
+.env.backup
+.env.new-features
+
+# Yjs document storage (real-time collab persistence)
+yjs-data/
+backend/yjs-data/
+
+# Android signing keystore (NEVER commit)
+*.keystore
+*.jks
+
+# Generated playstore assets (regeneratable from SVG sources)
+playstore/icons/raster/
+playstore/icons/adaptive/
+playstore/screenshots/phone/*.png
+playstore/screenshots/tablet-7/*.png
+playstore/screenshots/tablet-10/*.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +49,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Uploads and temporary files
+/uploads/*
+!/uploads/.gitkeep
+*.tmp
+*.temp
+.cache/
+.eslintcache
+

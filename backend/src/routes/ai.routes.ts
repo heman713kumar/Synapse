@@ -1,8 +1,8 @@
 // backend/src/routes/ai.routes.ts
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.middleware.js'; // Added .js
-import { aiService } from '../services/ai.service.js'; // Added .js
-import { query } from '../db/database.js'; // Added .js
+import { authenticateToken } from '../middleware/auth.middleware'; // Added .js
+import { aiService } from '../services/ai.service'; // Added .js
+import { query } from '../db/database'; // Added .js
 
 const router = express.Router();
 

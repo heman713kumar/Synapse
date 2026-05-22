@@ -1,6 +1,50 @@
 // C:\Users\hemant\Downloads\synapse\src\types.ts
 
-export type Page = 'login' | 'feed' | 'profile' | 'ideaDetail' | 'newIdea' | 'ideaBoard' | 'connections' | 'bookmarks' | 'inbox' | 'chat' | 'forum' | 'explore' | 'notifications' | 'privacyPolicy' | 'analytics' | 'onboarding' | 'notificationSettings' | 'kanban';
+export type Page =
+    | 'login'
+    | 'feed'
+    | 'profile'
+    | 'ideaDetail'
+    | 'newIdea'
+    | 'ideaBoard'
+    | 'connections'
+    | 'bookmarks'
+    | 'inbox'
+    | 'chat'
+    | 'forum'
+    | 'explore'
+    | 'notifications'
+    | 'privacyPolicy'
+    | 'privacy'
+    | 'analytics'
+    | 'onboarding'
+    | 'notificationSettings'
+    | 'kanban'
+    | 'verify-email'
+    | 'forgot-password'
+    | 'reset-password'
+    | 'search'
+    | 'trending'
+    | 'notificationCenter'
+    | 'settings'
+    | 'achievements'
+    | 'leaderboard'
+    | 'spaces'
+    | 'events'
+    | 'premium'
+    | 'investor'
+    | 'activity'
+    | 'quests'
+    | 'mentorship'
+    | 'developer'
+    | 'bounties'
+    | 'jobs'
+    | 'compare'
+    | 'trendingTags'
+    | 'status'
+    | 'changelog'
+    | 'stats'
+    | 'roadmap';
 
 // --- NEW TYPES ---
 export interface Milestone {
@@ -55,24 +99,38 @@ export interface KanbanBoard {
 // --- UPDATED TYPES ---
 export interface User {
   userId: string;
-  displayName: string; // <-- CORRECTED
+  id?: string; // Backend may send 'id' as alias
+  name?: string; // Legacy alias for displayName (some components still use it)
+  displayName?: string; // Preferred name field
   email: string;
-  avatarUrl: string; // Ensure this is not optional if used directly
-  bio: string; // Ensure this is not optional if used directly
-  skills: SkillEndorsement[];
-  interests: string[];
+  avatarUrl: string;
+  coverImageUrl?: string; // Profile banner
+  bio: string;
+  skills?: SkillEndorsement[];
+  interests?: string[];
   connections: string[]; // array of userIds
-  bookmarkedIdeas?: string[]; // Make optional if not always present
-  achievements?: UserAchievement[]; // Make optional if not always present
+  followers?: string[];
+  following?: string[];
+  bookmarkedIdeas?: string[];
+  achievements?: UserAchievement[];
   linkedInUrl?: string;
   portfolioUrl?: string;
-  onboardingCompleted: boolean; // Keep non-optional based on App.tsx logic
-  notificationSettings?: NotificationSettings; // Make optional if not always present
-  // Add other potential fields from backend responses
+  twitterUrl?: string;
+  githubUrl?: string;
+  websiteUrl?: string;
+  location?: string;
+  headline?: string; // Short tagline
+  onboardingCompleted: boolean;
+  notificationSettings?: NotificationSettings;
   username?: string;
-  userType?: 'thinker' | 'doer' | 'admin';
-  createdAt?: string; // Or Date
-  updatedAt?: string; // Or Date
+  userType?: 'thinker' | 'doer' | 'investor' | 'admin';
+  isVerified?: boolean;
+  isPremium?: boolean;
+  streakDays?: number;
+  reputationScore?: number;
+  profileCompletion?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Idea {
@@ -368,7 +426,25 @@ export interface NotificationSettings {
 
 // --- GAMIFICATION TYPES ---
 
-export type AchievementId = 'first_thought' | 'serial_innovator' | 'team_player' | 'super_collaborator' | 'valued_critic' | 'community_pillar';
+export type AchievementId =
+  | 'first_thought'
+  | 'serial_innovator'
+  | 'team_player'
+  | 'super_collaborator'
+  | 'valued_critic'
+  | 'community_pillar'
+  // Legacy IDs from older types/index.ts kept for backend compatibility
+  | 'first_idea'
+  | 'five_collaborators'
+  | 'forum_enthusiast'
+  | 'popular_idea'
+  | 'early_adopter'
+  // Additional achievements
+  | 'streak_7'
+  | 'streak_30'
+  | 'mentor'
+  | 'verified_profile'
+  | 'top_contributor';
 
 export interface Achievement {
   id: AchievementId;
@@ -433,3 +509,83 @@ export interface IdeaTemplate {
     visionForSuccess: string;
   };
 }
+
+// --- NEW FEATURE TYPES (added for app expansion) ---
+
+/** Reaction emojis allowed on ideas and comments */
+export type ReactionEmoji = '👍' | '❤️' | '🔥' | '💡' | '🚀' | '👀' | '🎉';
+
+export interface IdeaReaction {
+  userId: string;
+  emoji: ReactionEmoji;
+  createdAt: string;
+}
+
+export interface ReactionSummary {
+  emoji: ReactionEmoji;
+  count: number;
+  hasReacted: boolean;
+}
+
+/** Follow / social graph */
+export interface FollowEdge {
+  followerId: string;
+  followingId: string;
+  createdAt: string;
+}
+
+/** Tag with usage count, for autocomplete + trending */
+export interface Tag {
+  name: string;
+  count: number;
+  slug?: string;
+}
+
+/** Activity feed item — what your followed users are doing */
+export type ActivityType =
+  | 'posted_idea'
+  | 'commented'
+  | 'reacted'
+  | 'achieved'
+  | 'connected'
+  | 'milestone';
+
+export interface Activity {
+  activityId: string;
+  actorId: string;
+  type: ActivityType;
+  targetType?: 'idea' | 'comment' | 'user';
+  targetId?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+/** Command palette command spec */
+export interface PaletteCommand {
+  id: string;
+  label: string;
+  description?: string;
+  group: 'navigation' | 'create' | 'actions' | 'settings' | 'ideas' | 'people';
+  icon?: string;
+  keywords?: string[];
+  shortcut?: string;
+  perform: () => void;
+}
+
+/** Settings page sub-sections */
+export type SettingsSection =
+  | 'account'
+  | 'profile'
+  | 'notifications'
+  | 'privacy'
+  | 'appearance'
+  | 'security'
+  | 'integrations'
+  | 'danger';
+
+/** Theme variants */
+export type ThemeMode = 'light' | 'dark' | 'system';
+export type AccentColor = 'indigo' | 'violet' | 'rose' | 'emerald' | 'amber' | 'sky';
+
+/** Toast intent */
+export type ToastIntent = 'default' | 'success' | 'error' | 'warning' | 'info' | 'loading';

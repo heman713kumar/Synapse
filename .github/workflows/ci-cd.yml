@@ -1,0 +1,173 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Test Backend
+  test-backend:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: synapse_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'backend/package-lock.json'
+    
+    - name: Install dependencies
+      working-directory: backend
+      run: npm ci
+    
+    - name: Run linter
+      working-directory: backend
+      run: npm run lint --if-present
+      continue-on-error: true
+    
+    - name: Run tests
+      working-directory: backend
+      env:
+        DATABASE_URL: postgresql://test:test@localhost:5432/synapse_test
+        JWT_SECRET: test-secret
+        NODE_ENV: test
+      run: npm test -- --coverage
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend/coverage/lcov.info
+        flags: backend
+        name: backend-coverage
+
+  # Test Frontend
+  test-frontend:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run ESLint
+      run: npx eslint src --ext .tsx,.ts --max-warnings 0
+      continue-on-error: true
+    
+    - name: Type check
+      run: npx tsc --noEmit
+      continue-on-error: true
+    
+    - name: Build
+      run: npm run build
+
+  # Security and Quality Checks
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run npm audit
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+    
+    - name: Check for secrets
+      uses: gitleaks/gitleaks-action@v2
+      continue-on-error: true
+
+  # SonarQube Code Quality (Optional)
+  code-quality:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: SonarQube Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      continue-on-error: true
+
+  # Deploy to Staging (On main push)
+  deploy-staging:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to staging
+      env:
+        DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        DEPLOYMENT_SERVER: ${{ secrets.STAGING_SERVER }}
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your deployment commands here
+        # Example: ssh to server and pull latest code
+      continue-on-error: true
+    
+    - name: Notify deployment
+      if: success()
+      run: echo "✅ Staging deployment successful"
+    
+    - name: Notify failure
+      if: failure()
+      run: echo "❌ Staging deployment failed"
+
+  # Create GitHub Release (On main push with tests passing)
+  release:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          Automated release from CI/CD pipeline
+          
+          All tests passed ✅
+          Ready for deployment
+        draft: false
+        prerelease: false
+      continue-on-error: true

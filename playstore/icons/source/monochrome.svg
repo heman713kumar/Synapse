@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Monochrome layer for Android 13+ themed icons.
+     Must be a single flat color (system will tint). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="432" height="432">
+  <g transform="translate(0, 6)">
+    <path d="
+      M 296 158
+      C 296 134, 272 112, 240 112
+      L 200 112
+      C 168 112, 144 134, 144 158
+      C 144 182, 168 204, 200 204
+      L 240 204
+      C 272 204, 296 226, 296 250
+      C 296 274, 272 296, 240 296
+      L 200 296
+      C 168 296, 144 274, 144 250
+    "
+      fill="none"
+      stroke="black"
+      stroke-width="36"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <circle cx="200" cy="112" r="18" fill="black" />
+    <circle cx="240" cy="296" r="18" fill="black" />
+  </g>
+</svg>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Synapse</title>
+  <style>
+    body { margin: 0; width: 320px; font-family: -apple-system, system-ui, sans-serif; background: #0A0A0F; color: #fff; }
+    .hero { padding: 16px; background: linear-gradient(135deg, #6366F1, #8B5CF6, #EC4899); }
+    .hero h1 { margin: 0; font-size: 18px; }
+    .hero p { margin: 4px 0 0; font-size: 12px; opacity: 0.9; }
+    .content { padding: 16px; }
+    .row { display: flex; gap: 8px; margin-bottom: 8px; }
+    button { flex: 1; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; background: #6366F1; color: #fff; }
+    button.secondary { background: rgba(255,255,255,0.08); }
+    button:hover { opacity: 0.9; }
+    .input { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #fff; font-size: 13px; }
+    .footer { padding: 8px 16px; font-size: 11px; color: rgba(255,255,255,0.5); text-align: center; }
+    kbd { display: inline-block; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.1); font-family: monospace; font-size: 10px; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <h1>⚡ Synapse</h1>
+    <p>Save to Synapse from anywhere</p>
+  </div>
+  <div class="content">
+    <input id="title" class="input" placeholder="Title (pre-filled)" />
+    <textarea id="note" class="input" rows="3" placeholder="Add a note (optional)" style="margin-top:8px"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button id="save">Save page</button>
+      <button id="new-idea" class="secondary">New idea</button>
+    </div>
+  </div>
+  <div class="footer">
+    Quick-save: <kbd>⌘⇧S</kbd>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

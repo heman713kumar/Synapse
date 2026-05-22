@@ -4,27 +4,23 @@ import { parse } from 'pg-connection-string';
 
 const { Pool } = pg;
 
-// Load .env variables (though they are being ignored for DATABASE_URL)
+// Load environment variables from .env file
 dotenv.config();
 
-// --- FIX: Define the Supabase URL as the immediate source of truth ---
-// We use a clean definition that includes the crucial ?sslmode=disable flag.
-const SUPABASE_DB_URL = 'postgresql://postgres:Mahadev@shiva6563@db.fsgcdhshhsbmodspyggn.supabase.co:5432/postgres?sslmode=disable';
+// CRITICAL: Read database URL from environment variable only
+const dbUrl = process.env.DATABASE_URL;
 
-// --- FIX: Force the use of the clean Supabase URL in development ---
-// We check if the environment is NOT production. If it's development, use our clean definition.
-const dbUrl = process.env.NODE_ENV === 'development' 
-    ? SUPABASE_DB_URL
-    : process.env.DATABASE_URL || SUPABASE_DB_URL; // Fallback to Supabase URL in production if env var is missing
+if (!dbUrl) {
+    console.error('❌ FATAL ERROR: DATABASE_URL environment variable is not set');
+    console.error('Please set DATABASE_URL in .env file');
+    console.error('Example: postgresql://username:password@host:port/database?sslmode=require');
+    process.exit(1);
+}
 
-// --- Debugging output (kept for analysis) ---
-console.log('🔧 Database Configuration:');
-console.log('DATABASE_URL exists:', !!dbUrl);
-
-// Hide password in logs for security
+// Security: Hide password in logs
 const safeUrl = dbUrl.replace(/:[^:]*@/, ':****@');
-console.log('Database URL:', safeUrl);
-// --- End Debugging output ---
+console.log('🔧 Database Configuration:');
+console.log('Connected to:', safeUrl);
 
 let poolConfig: any = {
     max: 20,
@@ -35,12 +31,9 @@ let poolConfig: any = {
 try {
     const dbConfig = parse(dbUrl);
     
-    // Explicitly cast dbConfig.query to string to resolve TS2345 error (if it returns unknown)
-    const queryAsString = dbConfig.query as string; 
-    const urlParams = new URLSearchParams(queryAsString);
+    // Determine SSL mode from URL or use secure default
+    const urlParams = new URLSearchParams((dbConfig.query as string) || '');
     const sslMode = urlParams.get('sslmode');
-
-    // Determine SSL configuration: True unless explicitly disabled in the connection string
     const sslEnabled = sslMode !== 'disable';
     
     // Use the parsed values from the URL
@@ -51,15 +44,25 @@ try {
         host: dbConfig.host,
         port: dbConfig.port ? parseInt(dbConfig.port, 10) : 5432,
         database: dbConfig.database,
-        // Configure SSL based on flag. If enabled, use Supabase setting. If disabled, use false.
-        ssl: sslEnabled ? { rejectUnauthorized: false } : false,
+        // Force SSL in production, allow flexible SSL in development
+        ssl: process.env.NODE_ENV === 'production' 
+            ? { rejectUnauthorized: true }
+            : sslEnabled 
+                ? { rejectUnauthorized: false }
+                : false,
     };
     
     // Log the actual config being used
-    console.log(`🔗 Final Database Config - Host: ${poolConfig.host}, Port: ${poolConfig.port}, SSL: ${sslEnabled ? 'Enabled' : 'Disabled'}`);
+    const sslStatus = process.env.NODE_ENV === 'production' 
+        ? 'SSL Enabled (Production - Strict)'
+        : sslEnabled 
+            ? 'SSL Enabled'
+            : 'SSL Disabled';
+    console.log(`🔗 Final Database Config - Host: ${poolConfig.host}, Port: ${poolConfig.port}, ${sslStatus}`);
     
 } catch (parseError) {
     console.error('❌ Failed to parse DATABASE_URL:', parseError);
+    process.exit(1);
 }
 
 // Export the pool instance

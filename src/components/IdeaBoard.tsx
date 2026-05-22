@@ -39,18 +39,15 @@ const NodeComponent: React.FC<{
         <rect
             width={NODE_WIDTH}
             height={NODE_HEIGHT}
-            rx="10"
-            ry="10"
-            fill="#1A1A24"
-            stroke={isSelected ? '#8B5CF6' : '#4B5563'}
+            rx="12"
+            ry="12"
+            className={`fill-card ${isSelected ? 'stroke-primary' : 'stroke-border'} transition-all group-hover:stroke-primary`}
             strokeWidth="2"
-            className="transition-all group-hover:stroke-indigo-500"
         />
         <foreignObject width={NODE_WIDTH} height={NODE_HEIGHT} x="0" y="0">
-            {/* Added pointer-events-none to fix text selection issue */}
             <div className="w-full h-full p-3 flex flex-col justify-center text-center overflow-hidden pointer-events-none">
-                <p className="font-bold text-white truncate">{node.title}</p>
-                <p className="text-sm text-gray-400 truncate">{node.description}</p>
+                <p className="font-semibold text-card-foreground truncate text-sm">{node.title}</p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">{node.description}</p>
             </div>
         </foreignObject>
     </g>
@@ -64,15 +61,17 @@ const ConnectionLine: React.FC<{ fromNode: IdeaNode; toNode: IdeaNode; }> = ({ f
     // Using a simple straight line for connections
     // const pathData = `M ${fromX},${fromY} C ${fromX},${(fromY + toY) / 2} ${toX},${(fromY + toY) / 2} ${toX},${toY}`;
     const pathData = `M ${fromX},${fromY} L ${toX},${toY}`;
-    return <path d={pathData} stroke="#4B5563" strokeWidth="2" fill="none" />;
+    return <path d={pathData} className="stroke-border" strokeWidth="2" fill="none" strokeLinecap="round" />;
 };
 
 
 const SidePanel: React.FC<{ title: string; children: React.ReactNode; onClose: () => void; }> = ({ title, children, onClose }) => (
-    <div className="absolute top-0 right-0 h-full w-80 bg-[#1A1A24]/80 backdrop-blur-md border-l border-white/10 z-20 flex flex-col animate-slideInFromRight">
-        <div className="flex justify-between items-center p-4 border-b border-white/10">
-            <h3 className="text-lg font-bold text-white">{title}</h3>
-            <button onClick={onClose} className="p-1 rounded-full hover:bg-white/10"><Icons.XIcon className="w-5 h-5" /></button>
+    <div className="absolute top-0 right-0 h-full w-80 glass-strong border-l border-border z-20 flex flex-col animate-slide-down">
+        <div className="flex justify-between items-center p-4 border-b border-border">
+            <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+            <button onClick={onClose} aria-label="Close panel" className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors focus-ring">
+                <Icons.XIcon className="w-4 h-4" />
+            </button>
         </div>
         <div className="flex-1 p-4 overflow-y-auto scrollbar-thin">
             {children}
@@ -162,12 +161,12 @@ const SaveVersionModal: React.FC<{
 const SaveStatusIndicator: React.FC<{ status: 'saved' | 'unsaved' | 'saving' }> = ({ status }) => {
     switch (status) {
         case 'saving':
-            return <div className="flex items-center space-x-2 text-sm text-cyan-400"><Icons.LoaderIcon className="w-4 h-4 animate-spin"/><span>Saving...</span></div>;
+            return <div className="flex items-center gap-1.5 text-xs font-medium text-info"><Icons.LoaderIcon className="w-3.5 h-3.5 animate-spin" /><span>Saving…</span></div>;
         case 'unsaved':
-            return <div className="flex items-center space-x-2 text-sm text-yellow-400"><span>Unsaved changes</span></div>;
+            return <div className="flex items-center gap-1.5 text-xs font-medium text-warning"><span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" /><span>Unsaved changes</span></div>;
         case 'saved':
         default:
-            return <div className="flex items-center space-x-2 text-sm text-emerald-400"><Icons.CheckCircleIcon className="w-4 h-4"/><span>All changes saved</span></div>;
+            return <div className="flex items-center gap-1.5 text-xs font-medium text-success"><Icons.CheckCircleIcon className="w-3.5 h-3.5" /><span>Saved</span></div>;
     }
 };
 
@@ -453,18 +452,23 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
     // --- (FIX 5/5) Add safety check for comments array ---
     const nodeComments = useMemo(() => (comments || []).filter(c => c.nodeId === selectedNodeId), [comments, selectedNodeId]);
     
-    if (isLoading) return <div className="w-screen h-screen bg-[#0A0A0F] flex items-center justify-center"><Icons.LoaderIcon className="w-8 h-8 animate-spin text-indigo-400"/></div>;
-    if (!idea) return <div className="w-screen h-screen bg-[#0A0A0F] flex items-center justify-center">Idea not found.</div>;
-    
+    if (isLoading) return <div className="w-screen h-screen flex items-center justify-center bg-background"><Icons.LoaderIcon className="w-8 h-8 animate-spin text-primary" /></div>;
+    if (!idea) return <div className="w-screen h-screen flex items-center justify-center bg-background text-muted-foreground">Idea not found.</div>;
+
     return (
-        <div className="w-screen h-screen bg-[#0A0A0F] text-white flex flex-col overflow-hidden">
+        <div className="w-screen h-screen flex flex-col overflow-hidden bg-background text-foreground">
             {isSaveVersionModalOpen && <SaveVersionModal onClose={() => setIsSaveVersionModalOpen(false)} onSave={handleSaveVersion} />}
 
-            <header className="p-4 bg-[#1A1A24]/90 backdrop-blur-sm border-b border-white/10 flex justify-between items-center z-20 flex-shrink-0">
-                <button onClick={() => setPage('ideaDetail', ideaId)} className="bg-[#252532] px-4 py-2 rounded-lg text-sm hover:bg-[#374151]">&larr; Back to Idea</button>
-                <div className="text-center">
-                    <h1 className="text-xl font-bold">{idea.title}</h1>
-                    <p className="text-sm text-gray-400">Idea Board</p>
+            <header className="glass-strong border-b border-border px-4 py-3 flex items-center justify-between z-20 shrink-0">
+                <button
+                    onClick={() => setPage('ideaDetail', ideaId)}
+                    className="inline-flex items-center gap-2 h-9 px-3 rounded-lg text-sm font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors focus-ring"
+                >
+                    <span aria-hidden>←</span> Back to idea
+                </button>
+                <div className="text-center min-w-0">
+                    <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">Idea board</p>
+                    <h1 className="text-base font-semibold truncate">{idea.title}</h1>
                 </div>
                 <div className="w-48 flex justify-end">
                     {isOwner && <SaveStatusIndicator status={saveStatus} />}
@@ -534,23 +538,21 @@ export const IdeaBoard: React.FC<IdeaBoardProps> = ({ ideaId, currentUser, setPa
                     </SidePanel>
                 )}
                 
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#1A1A24]/80 backdrop-blur-md border border-white/10 p-2 rounded-xl flex items-center space-x-2 z-10">
-                    <button onClick={handleAddNode} disabled={!isOwner} title="Add Node" className="p-2 hover:bg-white/10 rounded-md disabled:opacity-50"><Icons.PlusIcon className="w-5 h-5"/></button>
-                    <button onClick={handleUndo} disabled={historyIndex <= 0 || !isOwner} title="Undo" className="p-2 hover:bg-white/10 rounded-md disabled:opacity-50"><Icons.UndoIcon className="w-5 h-5"/></button>
-                    <button onClick={handleRedo} disabled={historyIndex >= history.length - 1 || !isOwner} title="Redo" className="p-2 hover:bg-white/10 rounded-md disabled:opacity-50"><Icons.RedoIcon className="w-5 h-5"/></button>
-                    <span className="w-px h-6 bg-white/20"/>
-                    <button onClick={() => { setActivePanel('versions'); setSelectedNodeId(null); }} title="View Versions" className="p-2 hover:bg-white/10 rounded-md">
-                        <Icons.HistoryIcon className="w-5 h-5"/>
-                    </button>
-                    <span className="w-px h-6 bg-white/20"/>
-                    <button onClick={() => setView(v => ({...v, zoom: v.zoom * 1.2}))} title="Zoom In" className="p-2 hover:bg-white/10 rounded-md"><Icons.PlusIcon className="w-5 h-5"/></button>
-                    <button onClick={() => setView(v => ({...v, zoom: v.zoom / 1.2}))} title="Zoom Out" className="p-2 hover:bg-white/10 rounded-md"><Icons.MinusIcon className="w-5 h-5"/></button>
-                    <button onClick={() => setView({x:0, y:0, zoom: 1})} title="Reset View" className="p-2 hover:bg-white/10 rounded-md"><Icons.ZoomResetIcon className="w-5 h-5"/></button>
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 glass-strong border border-border p-1.5 rounded-2xl flex items-center gap-0.5 z-10 shadow-xl">
+                    <button onClick={handleAddNode} disabled={!isOwner} title="Add node" className="p-2 hover:bg-secondary rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-ring"><Icons.PlusIcon className="w-5 h-5" /></button>
+                    <button onClick={handleUndo} disabled={historyIndex <= 0 || !isOwner} title="Undo" className="p-2 hover:bg-secondary rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-ring"><Icons.UndoIcon className="w-5 h-5" /></button>
+                    <button onClick={handleRedo} disabled={historyIndex >= history.length - 1 || !isOwner} title="Redo" className="p-2 hover:bg-secondary rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-ring"><Icons.RedoIcon className="w-5 h-5" /></button>
+                    <span className="w-px h-6 bg-border mx-1" />
+                    <button onClick={() => { setActivePanel('versions'); setSelectedNodeId(null); }} title="View versions" className="p-2 hover:bg-secondary rounded-lg transition-colors focus-ring"><Icons.HistoryIcon className="w-5 h-5" /></button>
+                    <span className="w-px h-6 bg-border mx-1" />
+                    <button onClick={() => setView(v => ({ ...v, zoom: v.zoom * 1.2 }))} title="Zoom in" className="p-2 hover:bg-secondary rounded-lg transition-colors focus-ring"><Icons.PlusIcon className="w-5 h-5" /></button>
+                    <button onClick={() => setView(v => ({ ...v, zoom: v.zoom / 1.2 }))} title="Zoom out" className="p-2 hover:bg-secondary rounded-lg transition-colors focus-ring"><Icons.MinusIcon className="w-5 h-5" /></button>
+                    <button onClick={() => setView({ x: 0, y: 0, zoom: 1 })} title="Reset view" className="p-2 hover:bg-secondary rounded-lg transition-colors focus-ring"><Icons.ZoomResetIcon className="w-5 h-5" /></button>
                 </div>
 
-                 {connectingNodeId && (
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm shadow-lg z-10">
-                        Click another node to connect, or click it again to cancel.
+                {connectingNodeId && (
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium shadow-glow text-white bg-gradient-to-r from-indigo-600 to-violet-600 z-10 animate-fade-in-down">
+                        Click another node to connect, or click again to cancel
                     </div>
                 )}
             </div>

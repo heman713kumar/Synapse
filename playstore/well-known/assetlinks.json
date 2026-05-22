@@ -1,0 +1,18 @@
+[
+  {
+    "_comment": "Deploy this file at https://synapse.app/.well-known/assetlinks.json — Play Store and Chrome use it to verify you own both the domain and the Android app, which is what removes the URL bar from the TWA.",
+
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.synapse.twa",
+      "sha256_cert_fingerprints": [
+        "REPLACE_WITH_YOUR_SHA256_FROM_PLAY_CONSOLE"
+      ]
+    }
+  }
+]

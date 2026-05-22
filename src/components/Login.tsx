@@ -1,26 +1,29 @@
-// C:\Users\hemant\Downloads\synapse\src\components\Login.tsx
 import React, { useState } from 'react';
 import { User, Page } from '../types';
-// FIX: Import the REAL backend API service
 import api from '../services/backendApiService';
+import { Mail, Lock, User as UserIcon, AtSign, ArrowRight, Sparkles } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Label } from './ui/Label';
+import { Separator } from './ui/Separator';
+import { toast } from './ui/Toaster';
 
 interface LoginProps {
     setCurrentUser: (user: User | null) => void;
-    setPage: (page: Page, id?: string) => void; // Allow id for navigation
+    setPage: (page: Page, id?: string) => void;
     onGuestLogin: () => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ setCurrentUser, setPage, onGuestLogin }) => {
     const [mode, setMode] = useState<'login' | 'signup'>('login');
-    // FIX: Added username field needed for signup
     const [formData, setFormData] = useState({ name: '', username: '', email: '', password: '' });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        setError(''); // Clear error on input change
+        setFormData((prev) => ({ ...prev, [name]: value }));
+        setError('');
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -30,46 +33,33 @@ export const Login: React.FC<LoginProps> = ({ setCurrentUser, setPage, onGuestLo
 
         try {
             if (mode === 'login') {
-                // Call the backend API login function
                 const response = await api.login({ email: formData.email, password: formData.password });
-                
-                if (response && response.user && response.token) {
-                    // FIX: Save the token to localStorage
+                if (response?.user && response.token) {
                     localStorage.setItem('authToken', response.token);
-                    
-                    // Fetch the full user object to get onboarding status
-                    const fullUser = await api.getUserById(response.user.userId || (response.user as any).id);
-                    
-                    // --- THIS IS THE FIX ---
-                    // We must check if fullUser is null before using it
+                    const userId = response.user.userId || (response.user as any).id;
+                    const fullUser = await api.getUserById(userId);
                     if (fullUser) {
-                        setCurrentUser(fullUser); // Set the full user
-                        // Navigate based on onboarding status
+                        setCurrentUser(fullUser);
+                        toast.success(`Welcome back, ${fullUser.displayName ?? fullUser.name ?? 'friend'}!`);
                         setPage(fullUser.onboardingCompleted ? 'feed' : 'onboarding');
                     } else {
-                        // This case should be rare, but handles data consistency errors
-                        throw new Error("Login succeeded, but user data could not be found.");
+                        throw new Error('Login succeeded, but user data could not be found.');
                     }
-                    // --- END OF FIX ---
-                    
                 } else {
                     setError('Login failed. Please check your credentials.');
                 }
-            } else { // Sign up
-                // Call the backend API signup function
+            } else {
                 const response = await api.signUp({
-                    displayName: formData.name, // Map name to displayName
+                    displayName: formData.name,
                     username: formData.username,
                     email: formData.email,
                     password: formData.password,
-                    userType: 'thinker' // Default user type
+                    userType: 'thinker',
                 });
-                
-                if (response && response.user && response.token) {
-                    // FIX: Save the token to localStorage
+                if (response?.user && response.token) {
                     localStorage.setItem('authToken', response.token);
-                    setCurrentUser(response.user as User); // Set the partial user
-                    // Navigate to onboarding after signup
+                    setCurrentUser(response.user as User);
+                    toast.success('Account created! Welcome to Synapse 🎉');
                     setPage('onboarding');
                 } else {
                     setError(response?.error || 'Sign up failed. Please try again.');
@@ -84,107 +74,144 @@ export const Login: React.FC<LoginProps> = ({ setCurrentUser, setPage, onGuestLo
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 to-purple-100 dark:from-[#0F0F1A] dark:to-[#1A1A2E]">
-            <div className="max-w-md w-full space-y-8 bg-white/70 dark:bg-[#1A1A24]/70 backdrop-blur-xl border border-gray-200 dark:border-white/20 p-8 rounded-2xl shadow-2xl shadow-indigo-500/20 dark:shadow-indigo-900/50 animate-fadeInUp">
-                <div>
-                    <h1 className="text-center text-4xl font-bold text-gradient font-space-grotesk">Synapse</h1>
-                    <p className="mt-2 text-center text-gray-500 dark:text-gray-400">Connect. Collaborate. Create.</p>
+        <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden bg-background">
+            {/* Decorative mesh background */}
+            <div className="absolute inset-0 bg-mesh opacity-60 pointer-events-none" />
+            <div className="absolute inset-0 bg-dots opacity-30 pointer-events-none" />
+            {/* Floating orbs */}
+            <div className="absolute top-20 left-10 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl animate-float pointer-events-none" />
+            <div className="absolute bottom-20 right-10 h-96 w-96 rounded-full bg-fuchsia-500/20 blur-3xl animate-float pointer-events-none" style={{ animationDelay: '1s' }} />
+
+            <div className="relative grid lg:grid-cols-2 gap-12 max-w-5xl w-full">
+                {/* LEFT: Brand/Marketing */}
+                <div className="hidden lg:flex flex-col justify-center space-y-8 animate-fade-in-up">
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white font-bold text-xl shadow-glow">S</span>
+                        <span className="text-2xl font-bold text-gradient font-space-grotesk">Synapse</span>
+                    </div>
+                    <h2 className="text-4xl xl:text-5xl font-bold tracking-tight font-space-grotesk leading-tight">
+                        Where ideas meet <br />
+                        <span className="text-gradient">the people</span> to build them.
+                    </h2>
+                    <p className="text-lg text-muted-foreground max-w-md">
+                        Share what you're thinking. Find collaborators with the right skills. Turn sparks into shipped projects.
+                    </p>
+                    <ul className="space-y-3 text-sm">
+                        {[
+                            'Find collaborators by skill, not just by name',
+                            'Real-time discussion forums on every idea',
+                            'Kanban boards & AI coaching built-in',
+                            'Free to start — invite-only investor view',
+                        ].map((feature) => (
+                            <li key={feature} className="flex items-start gap-3">
+                                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                    <Sparkles className="h-3 w-3" />
+                                </span>
+                                <span className="text-muted-foreground">{feature}</span>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
 
-                <div className="bg-gray-100/50 dark:bg-[#101018]/50 p-1.5 rounded-lg flex space-x-2">
-                    <button onClick={() => { setMode('login'); setError(''); }} className={`w-full py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'login' ? 'bg-white dark:bg-[#252532] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}>
-                        Sign In
-                    </button>
-                    <button onClick={() => { setMode('signup'); setError(''); }} className={`w-full py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'signup' ? 'bg-white dark:bg-[#252532] text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}>
-                        Sign Up
-                    </button>
-                </div>
+                {/* RIGHT: Auth form */}
+                <div className="w-full max-w-md mx-auto animate-fade-in-up">
+                    <div className="surface p-8 shadow-2xl shadow-primary/10">
+                        <div className="text-center lg:text-left mb-6">
+                            <h1 className="text-2xl font-bold tracking-tight font-space-grotesk">
+                                {mode === 'login' ? 'Welcome back' : 'Join Synapse'}
+                            </h1>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                {mode === 'login' ? 'Sign in to continue' : 'Create an account to share your first idea'}
+                            </p>
+                        </div>
 
-                <form className="space-y-6" onSubmit={handleSubmit}>
-                    {mode === 'signup' && (
-                        <>
-                            <div>
-                                <input
-                                    name="name" // For display name
-                                    type="text"
-                                    required
-                                    aria-label="Full Name"
-                                    className="appearance-none relative block w-full px-3 py-3 bg-gray-100 dark:bg-[#101018] border-2 border-transparent placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-inner"
-                                    placeholder="Full Name"
-                                    value={formData.name}
-                                    onChange={handleInputChange}
-                                />
+                        {/* Mode toggle */}
+                        <div className="bg-secondary/50 p-1 rounded-lg flex gap-1 mb-6">
+                            {(['login', 'signup'] as const).map((m) => (
+                                <button
+                                    key={m}
+                                    type="button"
+                                    onClick={() => { setMode(m); setError(''); }}
+                                    className={`flex-1 py-2 rounded-md text-sm font-semibold transition-all ${
+                                        mode === m
+                                            ? 'bg-card text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {m === 'login' ? 'Sign in' : 'Create account'}
+                                </button>
+                            ))}
+                        </div>
+
+                        <form className="space-y-4" onSubmit={handleSubmit}>
+                            {mode === 'signup' && (
+                                <>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="name">Full name</Label>
+                                        <Input id="name" name="name" type="text" required placeholder="Ada Lovelace"
+                                            leftIcon={<UserIcon className="h-4 w-4" />}
+                                            value={formData.name} onChange={handleInputChange} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="username">Username</Label>
+                                        <Input id="username" name="username" type="text" required placeholder="adalovelace"
+                                            leftIcon={<AtSign className="h-4 w-4" />}
+                                            value={formData.username} onChange={handleInputChange} />
+                                    </div>
+                                </>
+                            )}
+                            <div className="space-y-1.5">
+                                <Label htmlFor="email">Email</Label>
+                                <Input id="email" name="email" type="email" autoComplete="email" required placeholder="you@example.com"
+                                    leftIcon={<Mail className="h-4 w-4" />}
+                                    value={formData.email} onChange={handleInputChange} />
                             </div>
-                            <div>
-                                <input
-                                    name="username" // Add username field for signup
-                                    type="text"
-                                    required
-                                    aria-label="Username"
-                                    className="appearance-none relative block w-full px-3 py-3 bg-gray-100 dark:bg-[#101018] border-2 border-transparent placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-inner"
-                                    placeholder="Username"
-                                    value={formData.username}
-                                    onChange={handleInputChange}
-                                />
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-baseline">
+                                    <Label htmlFor="password">Password</Label>
+                                    {mode === 'login' && (
+                                        <button type="button" onClick={() => setPage('forgot-password')}
+                                            className="text-xs text-primary hover:underline">
+                                            Forgot?
+                                        </button>
+                                    )}
+                                </div>
+                                <Input id="password" name="password" type="password"
+                                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                                    required placeholder="••••••••"
+                                    leftIcon={<Lock className="h-4 w-4" />}
+                                    value={formData.password} onChange={handleInputChange} />
                             </div>
-                        </>
-                    )}
-                    <div>
-                        <input
-                            name="email"
-                            type="email"
-                            autoComplete="email"
-                            required
-                            aria-label="Email address"
-                            className="appearance-none relative block w-full px-3 py-3 bg-gray-100 dark:bg-[#101018] border-2 border-transparent placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-inner"
-                            placeholder="Email address"
-                            value={formData.email}
-                            onChange={handleInputChange}
-                        />
-                    </div>
-                    <div>
-                        <input
-                            name="password"
-                            type="password"
-                            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                            required
-                            aria-label="Password"
-                            className="appearance-none relative block w-full px-3 py-3 bg-gray-100 dark:bg-[#101018] border-2 border-transparent placeholder-gray-500 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-inner"
-                            placeholder="Password"
-                            value={formData.password}
-                            onChange={handleInputChange}
-                        />
-                    </div>
 
-                    {error && <p className="text-red-500 dark:text-red-400 text-sm text-center">{error}</p>}
+                            {error && (
+                                <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+                                    {error}
+                                </div>
+                            )}
 
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-[#1A1A24] transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 disabled:opacity-50"
-                        >
-                            {isLoading ? 'Processing...' : (mode === 'login' ? 'Sign in' : 'Create Account')}
-                        </button>
-                    </div>
-                </form>
+                            <Button type="submit" variant="gradient" fullWidth size="lg" loading={isLoading}
+                                rightIcon={!isLoading ? <ArrowRight className="h-4 w-4" /> : undefined}>
+                                {mode === 'login' ? 'Sign in' : 'Create account'}
+                            </Button>
+                        </form>
 
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-300 dark:border-white/20"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white/70 dark:bg-[#1A1A24]/70 text-gray-500">Or</span>
-                    </div>
-                </div>
+                        <div className="my-6 flex items-center gap-3">
+                            <Separator className="flex-1" />
+                            <span className="text-xs text-muted-foreground">OR</span>
+                            <Separator className="flex-1" />
+                        </div>
 
-                <div>
-                    <button
-                        onClick={onGuestLogin}
-                        className="w-full text-center py-3 px-4 border border-gray-300 dark:border-white/20 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-500/10 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white transition-colors"
-                    >
-                        Browse as a Guest
-                    </button>
+                        <Button variant="outline" fullWidth onClick={onGuestLogin}>
+                            Continue as guest
+                        </Button>
+
+                        <p className="mt-6 text-xs text-center text-muted-foreground">
+                            By continuing, you agree to our{' '}
+                            <button type="button" onClick={() => setPage('privacyPolicy')} className="underline hover:text-foreground">
+                                Privacy Policy
+                            </button>.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

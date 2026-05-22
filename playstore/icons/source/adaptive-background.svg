@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Adaptive icon BACKGROUND layer (432x432).
+     Solid gradient. The launcher will mask this into circle/squircle/square. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="432" height="432">
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="50%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#EC4899" />
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.3" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="white" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="white" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="432" height="432" fill="url(#brand)" />
+  <rect width="432" height="432" fill="url(#sheen)" />
+</svg>

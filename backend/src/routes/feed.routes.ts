@@ -1,7 +1,7 @@
 // backend/src/routes/feed.routes.ts
 import express, { Request, Response, NextFunction, Router } from 'express';
-import { authenticateToken, optionalAuth } from '../middleware/auth.middleware.js';
-import { query } from '../db/database.js';
+import { authenticateToken, optionalAuth } from '../middleware/auth.middleware';
+import { query } from '../db/database';
 
 const router: Router = express.Router();
 
