@@ -44,7 +44,21 @@ export type Page =
     | 'status'
     | 'changelog'
     | 'stats'
-    | 'roadmap';
+    | 'roadmap'
+    | 'drafts'
+    | 'tag'
+    | 'savedSearches'
+    | 'searchHistory'
+    | 'curatorPicks'
+    | 'help'
+    | 'browseByStage'
+    | 'notes'
+    | 'wallOfFame'
+    | 'coFounderMatch'
+    | 'digest'
+    | 'notFound'
+    | 'reading'
+    | 'moderation';
 
 // --- NEW TYPES ---
 export interface Milestone {

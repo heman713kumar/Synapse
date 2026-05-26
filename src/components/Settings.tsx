@@ -24,6 +24,7 @@ import { TwoFactorSetup } from './TwoFactorSetup';
 import { LinkedInImportModal } from './LinkedInImportModal';
 import { DataExportModal } from './DataExportModal';
 import { AccountDeletionFlow } from './AccountDeletionFlow';
+import { ChangePasswordModal } from './ChangePasswordModal';
 import { Briefcase as BriefcaseIcon } from 'lucide-react';
 import { useA11y } from '../hooks/useA11y';
 
@@ -41,6 +42,21 @@ export const Settings: React.FC<SettingsProps> = ({ currentUser, setCurrentUser,
   const [showLinkedIn, setShowLinkedIn] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showChangePwd, setShowChangePwd] = useState(false);
+  const [resendingVerify, setResendingVerify] = useState(false);
+
+  const handleResendVerification = async () => {
+    if (resendingVerify) return;
+    setResendingVerify(true);
+    try {
+      await api.resendVerificationEmail(currentUser.email);
+      toast.success('Verification email sent');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not resend verification');
+    } finally {
+      setResendingVerify(false);
+    }
+  };
   const { prefs: a11yPrefs, setPrefs: setA11yPrefs } = useA11y();
   const [profile, setProfile] = useState({
     displayName: currentUser.displayName ?? currentUser.name ?? '',
@@ -305,9 +321,21 @@ export const Settings: React.FC<SettingsProps> = ({ currentUser, setCurrentUser,
                   <Field label="Email">
                     <Input value={currentUser.email} disabled leftIcon={<Mail className="h-4 w-4" />} />
                   </Field>
-                  <div className="flex gap-2">
-                    <Button variant="outline" leftIcon={<KeyRound className="h-4 w-4" />}>Change password</Button>
-                    <Button variant="ghost">Resend verification</Button>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      leftIcon={<KeyRound className="h-4 w-4" />}
+                      onClick={() => setShowChangePwd(true)}
+                    >
+                      Change password
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={handleResendVerification}
+                      loading={resendingVerify}
+                    >
+                      Resend verification
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -432,6 +460,8 @@ export const Settings: React.FC<SettingsProps> = ({ currentUser, setCurrentUser,
         user={currentUser}
         onConfirm={() => { onLogout(); }}
       />
+
+      <ChangePasswordModal open={showChangePwd} onOpenChange={setShowChangePwd} />
     </div>
   );
 };

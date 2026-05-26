@@ -3,10 +3,8 @@ import {
   ProgressStage, Feedback, Milestone, KanbanBoard, Report,
   NotificationSettings, AchievementId, IdeaNode, IdeaBoardVersion, NodeComment,
   BlockchainRecord, Conversation, Message, UserAchievement, RecommendedCollaborator,
-  ForumMessage, AchievementPost, MilestonePost
+  ForumMessage,
 } from '../types';
-
-import { supabase } from '../lib/supabaseClient';
 
 // ✅ Fix: remove /api from BASE_URL to avoid double /api
 const API_BASE_URL = import.meta.env.MODE === 'development'
@@ -157,9 +155,15 @@ const api = {
     }),
 
   resetPassword: (token: string, password: string): Promise<{ success: boolean; message: string }> =>
-    apiRequest('/api/auth/reset-password', { 
-      method: 'POST', 
-      body: JSON.stringify({ token, newPassword: password }) 
+    apiRequest('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword: password })
+    }),
+
+  changePassword: (currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> =>
+    apiRequest('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
     }),
 
   getUserById: (userId: string): Promise<User | null> => {
@@ -207,127 +211,15 @@ const api = {
     apiRequest<VoteResponse>(`/api/ideas/${ideaId}/vote`, { method: 'POST', body: JSON.stringify({ type }) }),
 
  getFeedItems: async (): Promise<FeedItem[]> => {
+  // Backend already returns the canonical FeedItem shape ({type, data}) from
+  // /api/feed, joining ideas + achievement_posts + milestone_posts in one
+  // round-trip with auth + rate-limiting applied. Returning [] on failure
+  // lets the Feed component show its empty state without throwing.
   try {
-    // Try to fetch from Supabase
-    let ideas: any[] = [];
-    let achievements: any[] = [];
-    let milestones: any[] = [];
-
-    // Safely attempt Supabase queries
-    try {
-      const { data: ideasData, error: ideasError } = await supabase
-        .from('ideas')
-        .select('id, owner_id, title, summary, description, stage, tags, sector, region, required_skills, is_public, likes_count, comments_count, collaborators, questionnaire, created_at, updated_at')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
-      if (!ideasError) ideas = ideasData || [];
-    } catch (err) {
-      console.warn('Ideas query failed, trying fallback...', err);
-      ideas = [];
-    }
-
-    // Fetch achievements with safe column selection
-    try {
-      const { data: achievementsData, error: achievementsError } = await supabase
-        .from('achievement_posts')
-        .select('id, user_id, achievement_id, title, description, achievement_type, skills_gained, is_public, created_at, updated_at')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
-      if (!achievementsError) achievements = achievementsData || [];
-    } catch (err) {
-      console.warn('Achievements query failed...', err);
-      achievements = [];
-    }
-
-    // Fetch milestones with safe column selection
-    try {
-      const { data: milestonesData, error: milestonesError } = await supabase
-        .from('milestone_posts')
-        .select('id, idea_id, user_id, title, description, milestone_type, related_skills, is_public, created_at, updated_at')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
-      if (!milestonesError) milestones = milestonesData || [];
-    } catch (err) {
-      console.warn('Milestones query failed...', err);
-      milestones = [];
-    }
-
-    // If no data from Supabase, return empty array (will trigger fallback in component)
-    if (!ideas.length && !achievements.length && !milestones.length) {
-      return [];
-    }
-
-    // Map all to FeedItem[]
-    const feed: FeedItem[] = [
-      ...(ideas || []).map(i => ({
-  type: 'idea' as const,
-  data: {
-    ideaId: i.id,
-    ownerId: i.owner_id, 
-    title: i.title,
-    summary: i.summary,
-    description: i.description,
-    stage: i.stage,
-    tags: i.tags || [],
-    sector: i.sector,
-    region: i.region,
-    requiredSkills: i.required_skills || [],
-    isPublic: i.is_public,
-    likesCount: i.likes_count || 0,
-    commentsCount: i.comments_count || 0,
-    collaborators: i.collaborators || [],
-    questionnaire: i.questionnaire || undefined,
-    createdAt: i.created_at,
-    updatedAt: i.updated_at,
-  } as Idea,
-})),
-
-
-      ...(achievements || []).map(a => ({
-        type: 'achievement' as const,
-        data: {
-          postId: a.id,
-          userId: a.user_id,
-          achievementId: a.achievement_id, 
-          title: a.title,
-          description: a.description,
-          achievementType: a.achievement_type,
-          skillsGained: a.skills_gained,
-          isPublic: a.is_public,
-          createdAt: a.created_at,
-          updatedAt: a.updated_at,
-        } as AchievementPost,
-      })),
-
-      ...(milestones || []).map(m => ({
-        type: 'milestone' as const,
-        data: {
-          postId: m.id,
-           ideaId: m.idea_id,   
-          userId: m.user_id,
-          title: m.title,
-          description: m.description,
-          milestoneType: m.milestone_type,
-          relatedSkills: m.related_skills,
-          isPublic: m.is_public,
-          createdAt: m.created_at,
-          updatedAt: m.updated_at,
-        } as MilestonePost,
-      })),
-    ];
-
-    // Sort feed by createdAt descending
-    return feed.sort((a, b) => {
-      const da = a.data?.createdAt ? new Date(a.data.createdAt).getTime() : 0;
-      const db = b.data?.createdAt ? new Date(b.data.createdAt).getTime() : 0;
-      return db - da;
-    });
+    const items = await apiRequest<FeedItem[]>('/api/feed');
+    return Array.isArray(items) ? items : [];
   } catch (error) {
     console.error('Error fetching feed:', error);
-    // Return empty array so Feed component can show message
     return [];
   }
 },
@@ -414,6 +306,22 @@ const api = {
   submitReport: (reportData: Omit<Report, 'reportId' | 'reporterId' | 'createdAt' | 'status'>): Promise<Report> =>
     apiRequest<Report>(`/api/reports`, { method: 'POST', body: JSON.stringify(reportData) }),
 
+  // Admin-only: list pending reports
+  getReports: (status?: 'pending' | 'reviewed'): Promise<Report[]> => {
+    const qs = status ? `?status=${status}` : '';
+    return apiRequest<Report[]>(`/api/reports${qs}`);
+  },
+
+  // Admin-only: mark a report reviewed (with optional action)
+  resolveReport: (
+    reportId: string,
+    action: 'dismiss' | 'remove_content' | 'warn_user' | 'ban_user'
+  ): Promise<{ success: boolean }> =>
+    apiRequest(`/api/reports/${reportId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ action }),
+    }),
+
   addMilestone: (ideaId: string, milestoneData: any): Promise<MilestoneResponse> =>
     apiRequest<MilestoneResponse>(`/api/ideas/${ideaId}/milestones`, { method: 'POST', body: JSON.stringify(milestoneData) }),
   editMilestone: (ideaId: string, milestoneId: string, milestoneData: any): Promise<MilestoneResponse> =>
@@ -494,6 +402,85 @@ const api = {
     apiRequest<any>('/api/curator-picks', { method: 'POST', body: JSON.stringify({ ideaId, reason }) }),
   removeCuratorPick: (ideaId: string): Promise<void> =>
     apiRequest<void>(`/api/curator-picks/${ideaId}`, { method: 'DELETE' }),
+
+  // ============================================
+  // BOUNTIES   (backend: backend/src/routes/bounties.routes.ts)
+  // ============================================
+  getBounties: (): Promise<any[]> =>
+    apiRequest<any[]>('/api/bounties'),
+  getBountyById: (id: string): Promise<any> =>
+    apiRequest<any>(`/api/bounties/${id}`),
+  createBounty: (payload: {
+    ideaId?: string; title: string; description: string;
+    rewardCents: number; deadline?: string; difficulty?: 'easy'|'medium'|'hard';
+    tags?: string[];
+  }): Promise<any> =>
+    apiRequest<any>('/api/bounties', { method: 'POST', body: JSON.stringify(payload) }),
+  applyToBounty: (id: string, proposal: string): Promise<any> =>
+    apiRequest<any>(`/api/bounties/${id}/apply`, { method: 'POST', body: JSON.stringify({ proposal }) }),
+  getBountyApplications: (id: string): Promise<any[]> =>
+    apiRequest<any[]>(`/api/bounties/${id}/applications`),
+  acceptBountyApplicant: (id: string, applicantId: string): Promise<any> =>
+    apiRequest<any>(`/api/bounties/${id}/accept/${applicantId}`, { method: 'POST' }),
+  completeBounty: (id: string): Promise<any> =>
+    apiRequest<any>(`/api/bounties/${id}/complete`, { method: 'POST' }),
+  cancelBounty: (id: string): Promise<any> =>
+    apiRequest<any>(`/api/bounties/${id}/cancel`, { method: 'POST' }),
+
+  // ============================================
+  // JOBS   (backend: backend/src/routes/jobs.routes.ts)
+  // ============================================
+  getJobs: (): Promise<any[]> =>
+    apiRequest<any[]>('/api/jobs'),
+  getJobById: (id: string): Promise<any> =>
+    apiRequest<any>(`/api/jobs/${id}`),
+  createJob: (payload: {
+    title: string; description: string; location?: string;
+    workType?: string; tags?: string[]; salaryRange?: string;
+  }): Promise<any> =>
+    apiRequest<any>('/api/jobs', { method: 'POST', body: JSON.stringify(payload) }),
+  applyToJob: (id: string, payload: { coverLetter?: string; resumeUrl?: string }): Promise<any> =>
+    apiRequest<any>(`/api/jobs/${id}/apply`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateJob: (id: string, payload: any): Promise<any> =>
+    apiRequest<any>(`/api/jobs/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  // ============================================
+  // MENTORSHIP   (backend: backend/src/routes/mentorship.routes.ts)
+  // ============================================
+  getMentors: (): Promise<any[]> =>
+    apiRequest<any[]>('/api/mentorship/mentors'),
+  becomeMentor: (payload: { bio: string; skills: string[]; hourlyRateCents?: number }): Promise<any> =>
+    apiRequest<any>('/api/mentorship/mentors', { method: 'POST', body: JSON.stringify(payload) }),
+  getMentorProfile: (userId: string): Promise<any> =>
+    apiRequest<any>(`/api/mentorship/mentors/${userId}`),
+  bookMentor: (payload: { mentorId: string; scheduledAt: string; topic?: string }): Promise<any> =>
+    apiRequest<any>('/api/mentorship/bookings', { method: 'POST', body: JSON.stringify(payload) }),
+  getMyMentorBookings: (): Promise<any[]> =>
+    apiRequest<any[]>('/api/mentorship/bookings/me'),
+  reviewMentorBooking: (id: string, payload: { rating: number; comment?: string }): Promise<any> =>
+    apiRequest<any>(`/api/mentorship/bookings/${id}/review`, { method: 'POST', body: JSON.stringify(payload) }),
+
+  // ============================================
+  // GAMIFICATION   (backend: backend/src/routes/gamification.routes.ts)
+  // Powers the useXP / useQuests / useStreak hooks; each hook falls back
+  // to localStorage on network failure so the app still works without a DB.
+  // ============================================
+  awardXP: (payload: { reason: string; amount: number }): Promise<any> =>
+    apiRequest<any>('/api/gamification/xp/award', { method: 'POST', body: JSON.stringify(payload) }),
+  getMyXP: (): Promise<{ total_xp: number; current_streak: number; longest_streak: number; level: number } & Record<string, any>> =>
+    apiRequest<any>('/api/gamification/xp/me'),
+  getMyActivity: (): Promise<any[]> =>
+    apiRequest<any[]>('/api/gamification/activity/me'),
+  getMyQuests: (): Promise<any[]> =>
+    apiRequest<any[]>('/api/gamification/quests/me'),
+  incrementQuest: (questId: string): Promise<any> =>
+    apiRequest<any>(`/api/gamification/quests/${questId}/increment`, { method: 'POST' }),
+  tickStreak: (): Promise<{ current_streak: number; longest_streak: number } & Record<string, any>> =>
+    apiRequest<any>('/api/gamification/streak/tick', { method: 'POST' }),
+  getXpLeaderboard: (): Promise<any[]> =>
+    apiRequest<any[]>('/api/gamification/leaderboard/xp'),
+  getStreakLeaderboard: (): Promise<any[]> =>
+    apiRequest<any[]>('/api/gamification/leaderboard/streak'),
 
   // checkBackendHealth,
 };

@@ -31,6 +31,7 @@ import { StreakBadge } from './StreakBadge';
 import { ProfileQRModal } from './ProfileQRModal';
 import { QrCode } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { NotFound } from './NotFound';
 
 interface ProfileProps {
   userId: string;
@@ -128,13 +129,7 @@ export const Profile: React.FC<ProfileProps> = ({ userId, currentUser, setPage }
   }
 
   if (!user) {
-    return (
-      <EmptyState
-        title="User not found"
-        description="This profile may have been removed or doesn't exist."
-        action={{ label: 'Back to feed', onClick: () => setPage('feed') }}
-      />
-    );
+    return <NotFound setPage={setPage} message="This profile was deleted or never existed." />;
   }
 
   const name = userName(user);

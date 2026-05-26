@@ -7,6 +7,7 @@ import {
   Plus, Settings, LogOut, Moon, Sun, Sparkles, TrendingUp, Network, Inbox as InboxIcon,
   Trophy, Hash, Calendar, Crown, DollarSign, Activity, Target, GraduationCap, Code2,
   Briefcase, GitCompare, Map, Megaphone, BarChart3,
+  HelpCircle, Layers, NotebookPen, BookmarkPlus, History, Crown as CrownIcon, Mail, Shield,
 } from 'lucide-react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { useTheme } from '../hooks/useTheme';
@@ -78,6 +79,9 @@ export function CommandPalette({ open, onOpenChange, onNavigate, onLogout, isAut
                 <Item icon={<Calendar className="h-4 w-4" />} label="Events &amp; AMAs" onSelect={run(() => onNavigate('events'))} />
                 <Item icon={<TrendingUp className="h-4 w-4" />} label="Trending" onSelect={run(() => onNavigate('trending'))} />
                 <Item icon={<Hash className="h-4 w-4" />} label="Trending tags" onSelect={run(() => onNavigate('trendingTags'))} />
+                <Item icon={<Layers className="h-4 w-4" />} label="Browse by stage" onSelect={run(() => onNavigate('browseByStage'))} />
+                <Item icon={<CrownIcon className="h-4 w-4" />} label="Curator picks" onSelect={run(() => onNavigate('curatorPicks'))} />
+                <Item icon={<Trophy className="h-4 w-4" />} label="Wall of fame" onSelect={run(() => onNavigate('wallOfFame'))} />
                 <Item icon={<Trophy className="h-4 w-4" />} label="Leaderboard" onSelect={run(() => onNavigate('leaderboard'))} />
                 <Item icon={<Briefcase className="h-4 w-4" />} label="Jobs" onSelect={run(() => onNavigate('jobs'))} />
                 <Item icon={<DollarSign className="h-4 w-4" />} label="Bounties" onSelect={run(() => onNavigate('bounties'))} />
@@ -94,6 +98,9 @@ export function CommandPalette({ open, onOpenChange, onNavigate, onLogout, isAut
                     <Item icon={<UserIcon className="h-4 w-4" />} label="My profile" onSelect={run(() => onNavigate('profile'))} />
                     <Item icon={<DollarSign className="h-4 w-4" />} label="Investor mode" onSelect={run(() => onNavigate('investor'))} />
                     <Item icon={<GraduationCap className="h-4 w-4" />} label="Mentorship & Office Hours" onSelect={run(() => onNavigate('mentorship'))} />
+                    <Item icon={<UserIcon className="h-4 w-4" />} label="Co-founder match" onSelect={run(() => onNavigate('coFounderMatch'))} />
+                    <Item icon={<Mail className="h-4 w-4" />} label="Weekly digest preview" onSelect={run(() => onNavigate('digest'))} />
+                    <Item icon={<Shield className="h-4 w-4" />} label="Moderation queue (admin)" onSelect={run(() => onNavigate('moderation'))} />
                     <Item icon={<Code2 className="h-4 w-4" />} label="API keys & Webhooks" onSelect={run(() => onNavigate('developer'))} />
                   </>
                 )}
@@ -102,6 +109,10 @@ export function CommandPalette({ open, onOpenChange, onNavigate, onLogout, isAut
                 <Item icon={<Megaphone className="h-4 w-4" />} label="Changelog" onSelect={run(() => onNavigate('changelog'))} />
                 <Item icon={<Activity className="h-4 w-4" />} label="System status" onSelect={run(() => onNavigate('status'))} />
                 <Item icon={<BarChart3 className="h-4 w-4" />} label="Public stats" onSelect={run(() => onNavigate('stats'))} />
+                <Item icon={<HelpCircle className="h-4 w-4" />} label="Help center" onSelect={run(() => onNavigate('help'))} />
+                <Item icon={<NotebookPen className="h-4 w-4" />} label="My notes" onSelect={run(() => onNavigate('notes'))} />
+                <Item icon={<BookmarkPlus className="h-4 w-4" />} label="Saved searches" onSelect={run(() => onNavigate('savedSearches'))} />
+                <Item icon={<History className="h-4 w-4" />} label="Search history" onSelect={run(() => onNavigate('searchHistory'))} />
               </Command.Group>
 
               {isAuthenticated && (

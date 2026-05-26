@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Page } from '../types';
 import api from '../services/backendApiService';
-import { Mail, Lock, User as UserIcon, AtSign, ArrowRight, Sparkles } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, AtSign, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Label } from './ui/Label';
@@ -19,6 +19,7 @@ export const Login: React.FC<LoginProps> = ({ setCurrentUser, setPage, onGuestLo
     const [formData, setFormData] = useState({ name: '', username: '', email: '', password: '' });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -32,27 +33,32 @@ export const Login: React.FC<LoginProps> = ({ setCurrentUser, setPage, onGuestLo
         setIsLoading(true);
 
         try {
+            // Normalize on the client too so the same value matches what the
+            // backend stores. The backend also lowercases — this just avoids
+            // the case where a stray uppercase character in an autofilled
+            // value causes "Invalid credentials".
+            const email = formData.email.trim().toLowerCase();
+            const username = formData.username.trim().toLowerCase();
+
             if (mode === 'login') {
-                const response = await api.login({ email: formData.email, password: formData.password });
+                const response = await api.login({ email, password: formData.password });
                 if (response?.user && response.token) {
                     localStorage.setItem('authToken', response.token);
-                    const userId = response.user.userId || (response.user as any).id;
-                    const fullUser = await api.getUserById(userId);
-                    if (fullUser) {
-                        setCurrentUser(fullUser);
-                        toast.success(`Welcome back, ${fullUser.displayName ?? fullUser.name ?? 'friend'}!`);
-                        setPage(fullUser.onboardingCompleted ? 'feed' : 'onboarding');
-                    } else {
-                        throw new Error('Login succeeded, but user data could not be found.');
-                    }
+                    // Login response now carries everything (avatar, bio, skills,
+                    // interests, emailVerified, onboardingCompleted) — no second
+                    // round trip for getUserById.
+                    const user = response.user as User;
+                    setCurrentUser(user);
+                    toast.success(`Welcome back, ${user.displayName ?? (user as any).name ?? 'friend'}!`);
+                    setPage(user.onboardingCompleted ? 'feed' : 'onboarding');
                 } else {
                     setError('Login failed. Please check your credentials.');
                 }
             } else {
                 const response = await api.signUp({
                     displayName: formData.name,
-                    username: formData.username,
-                    email: formData.email,
+                    username,
+                    email,
                     password: formData.password,
                     userType: 'thinker',
                 });
@@ -176,11 +182,41 @@ export const Login: React.FC<LoginProps> = ({ setCurrentUser, setPage, onGuestLo
                                         </button>
                                     )}
                                 </div>
-                                <Input id="password" name="password" type="password"
-                                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                                    required placeholder="••••••••"
-                                    leftIcon={<Lock className="h-4 w-4" />}
-                                    value={formData.password} onChange={handleInputChange} />
+                                {/*
+                                    Plain relative wrapper + absolutely-positioned eye button.
+                                    Don't use Input's `rightIcon` prop here — that slot's
+                                    wrapper is positioned in a way that doesn't always
+                                    allow a clickable child element. This is bulletproof.
+                                */}
+                                <div className="relative">
+                                    <Input
+                                        id="password"
+                                        name="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                                        required
+                                        placeholder="••••••••"
+                                        leftIcon={<Lock className="h-4 w-4" />}
+                                        className="pr-10"
+                                        value={formData.password}
+                                        onChange={handleInputChange}
+                                    />
+                                    <button
+                                        type="button"
+                                        tabIndex={-1}
+                                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                        aria-pressed={showPassword}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setShowPassword((v) => !v)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 z-10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-1"
+                                    >
+                                        {showPassword ? (
+                                            <EyeOff className="h-4 w-4" aria-hidden="true" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" aria-hidden="true" />
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
                             {error && (

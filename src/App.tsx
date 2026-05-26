@@ -32,6 +32,9 @@ const TrendingAndRecommendations = lazy(() => import('./components/TrendingAndRe
 const NotificationCenter = lazy(() => import('./components/NotificationCenter'));
 const Settings = lazy(() => import('./components/Settings').then((m) => ({ default: m.Settings })));
 const Leaderboard = lazy(() => import('./components/Leaderboard').then((m) => ({ default: m.Leaderboard })));
+const Achievements = lazy(() => import('./components/Achievements').then((m) => ({ default: m.Achievements })));
+const Drafts = lazy(() => import('./components/Drafts').then((m) => ({ default: m.Drafts })));
+const TagPage = lazy(() => import('./components/TagPage').then((m) => ({ default: m.TagPage })));
 const Spaces = lazy(() => import('./components/Spaces').then((m) => ({ default: m.Spaces })));
 const Events = lazy(() => import('./components/Events').then((m) => ({ default: m.Events })));
 const Premium = lazy(() => import('./components/Premium').then((m) => ({ default: m.Premium })));
@@ -48,6 +51,18 @@ const StatusPage = lazy(() => import('./components/StatusPage').then((m) => ({ d
 const Changelog = lazy(() => import('./components/Changelog').then((m) => ({ default: m.Changelog })));
 const PublicStats = lazy(() => import('./components/PublicStats').then((m) => ({ default: m.PublicStats })));
 const Roadmap = lazy(() => import('./components/Roadmap').then((m) => ({ default: m.Roadmap })));
+const Help = lazy(() => import('./components/Help').then((m) => ({ default: m.Help })));
+const WallOfFame = lazy(() => import('./components/WallOfFame').then((m) => ({ default: m.WallOfFame })));
+const Notes = lazy(() => import('./components/Notes').then((m) => ({ default: m.Notes })));
+const SavedSearches = lazy(() => import('./components/SavedSearches').then((m) => ({ default: m.SavedSearches })));
+const SearchHistory = lazy(() => import('./components/SearchHistory').then((m) => ({ default: m.SearchHistory })));
+const CuratorPicks = lazy(() => import('./components/CuratorPicks').then((m) => ({ default: m.CuratorPicks })));
+const BrowseByStage = lazy(() => import('./components/BrowseByStage').then((m) => ({ default: m.BrowseByStage })));
+const CoFounderMatch = lazy(() => import('./components/CoFounderMatch').then((m) => ({ default: m.CoFounderMatch })));
+const DigestPreview = lazy(() => import('./components/DigestPreview').then((m) => ({ default: m.DigestPreview })));
+const NotFound = lazy(() => import('./components/NotFound').then((m) => ({ default: m.NotFound })));
+const ReadingMode = lazy(() => import('./components/ReadingMode').then((m) => ({ default: m.ReadingMode })));
+const Moderation = lazy(() => import('./components/Moderation').then((m) => ({ default: m.Moderation })));
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
 import { Toaster } from './components/ui/Toaster';
@@ -92,11 +107,60 @@ const App: React.FC = () => {
         setPage(newPage);
         setSelectedIdeaId(
             newPage === 'ideaDetail' || newPage === 'ideaBoard' || newPage === 'forum' ||
-            newPage === 'analytics' || newPage === 'kanban' ? id ?? null : null
+            newPage === 'analytics' || newPage === 'kanban' || newPage === 'tag' ||
+            newPage === 'browseByStage' || newPage === 'reading'
+                ? id ?? null
+                : null
         );
         setSelectedUserId(newPage === 'profile' && id ? id : null);
         setSelectedConversationId(newPage === 'chat' && id ? id : null);
+
+        // Mirror page → URL hash for shareable links: tag pages, user profiles,
+        // and stage-filtered browse pages. Everything else stays SPA-state-only.
+        let nextHash: string | null = null;
+        if (newPage === 'tag' && id) nextHash = `#tag/${encodeURIComponent(id)}`;
+        else if (newPage === 'profile' && id) nextHash = `#user/${encodeURIComponent(id)}`;
+        else if (newPage === 'browseByStage' && id) nextHash = `#stage/${encodeURIComponent(id)}`;
+
+        const isHashRoute = /^#(tag|user|stage)\//.test(window.location.hash);
+        if (nextHash) {
+            if (window.location.hash !== nextHash) {
+                window.history.replaceState(null, '', nextHash);
+            }
+        } else if (isHashRoute) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+
         window.scrollTo(0, 0);
+    }, []);
+
+    // Hash-route: parse `#tag/<name>`, `#user/<userId>`, and `#stage/<stage>`
+    // on first load AND on browser back/forward. Shareable URLs hit the right
+    // page even though we don't run a real router.
+    useEffect(() => {
+        const apply = () => {
+            let m = window.location.hash.match(/^#tag\/(.+)$/);
+            if (m) {
+                setPage('tag');
+                setSelectedIdeaId(decodeURIComponent(m[1]));
+                return;
+            }
+            m = window.location.hash.match(/^#user\/(.+)$/);
+            if (m) {
+                setPage('profile');
+                setSelectedUserId(decodeURIComponent(m[1]));
+                return;
+            }
+            m = window.location.hash.match(/^#stage\/(.+)$/);
+            if (m) {
+                setPage('browseByStage');
+                setSelectedIdeaId(decodeURIComponent(m[1]));
+                return;
+            }
+        };
+        apply();
+        window.addEventListener('hashchange', apply);
+        return () => window.removeEventListener('hashchange', apply);
     }, []);
 
     const handleSetCurrentUser = useCallback((user: User | null) => {
@@ -317,6 +381,14 @@ const App: React.FC = () => {
                 return <PrivacyPolicy setPage={handleNavigation} />;
             case 'leaderboard':
                 return <Leaderboard currentUser={currentUser} setPage={handleNavigation} />;
+            case 'achievements':
+                return <Achievements currentUser={currentUser} />;
+            case 'drafts':
+                return <Drafts setPage={handleNavigation} />;
+            case 'tag':
+                // Tag is passed via selectedIdeaId slot (reusing the id channel
+                // rather than threading a fourth piece of route state through App).
+                return <TagPage tag={selectedIdeaId || ''} currentUser={currentUser} setPage={handleNavigation} />;
             case 'spaces':
                 return <Spaces setPage={handleNavigation} />;
             case 'events':
@@ -349,8 +421,32 @@ const App: React.FC = () => {
                 return <PublicStats setPage={handleNavigation} />;
             case 'roadmap':
                 return <Roadmap setPage={handleNavigation} />;
+            case 'help':
+                return <Help setPage={handleNavigation} />;
+            case 'wallOfFame':
+                return <WallOfFame setPage={handleNavigation} />;
+            case 'notes':
+                return <Notes setPage={handleNavigation} />;
+            case 'savedSearches':
+                return <SavedSearches setPage={handleNavigation} />;
+            case 'searchHistory':
+                return <SearchHistory setPage={handleNavigation} />;
+            case 'curatorPicks':
+                return <CuratorPicks setPage={handleNavigation} />;
+            case 'browseByStage':
+                return <BrowseByStage setPage={handleNavigation} initialStage={(selectedIdeaId || undefined) as any} />;
+            case 'coFounderMatch':
+                return <CoFounderMatch setPage={handleNavigation} currentUser={currentUser} />;
+            case 'digest':
+                return <DigestPreview setPage={handleNavigation} currentUser={currentUser} />;
+            case 'reading':
+                return <ReadingMode setPage={handleNavigation} ideaId={selectedIdeaId} />;
+            case 'notFound':
+                return <NotFound setPage={handleNavigation} />;
+            case 'moderation':
+                return <Moderation setPage={handleNavigation} currentUser={currentUser} />;
             default:
-                return <Feed currentUser={currentUser} setPage={handleNavigation} />;
+                return <NotFound setPage={handleNavigation} />;
         }
 
         if (selectedIdeaId === null && ['ideaDetail', 'ideaBoard', 'kanban', 'forum', 'analytics'].includes(page)) {

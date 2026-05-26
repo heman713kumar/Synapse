@@ -1,3 +1,4 @@
+/// <reference path="../types/express.d.ts" />
 import jwt, { Secret, JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 

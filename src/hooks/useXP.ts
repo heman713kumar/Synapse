@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { celebrate, playSound } from '../utils/effects';
 import { toast } from '../components/ui/Toaster';
+import api from '../services/backendApiService';
 
 export type XPAction =
   | 'post_idea'
@@ -71,6 +72,25 @@ export function useXP() {
 
   const levelInfo = useMemo(() => levelFromXP(state.totalXP), [state.totalXP]);
 
+  // On mount, try to pull authoritative XP total from the backend. If it's
+  // higher than what we have locally (e.g. user awarded XP on another device),
+  // adopt the backend value. Backend errors are silently ignored so the hook
+  // keeps working when the API is offline.
+  useEffect(() => {
+    let alive = true;
+    api.getMyXP()
+      .then((data) => {
+        if (!alive) return;
+        const serverXP = Number(data?.total_xp ?? 0);
+        if (Number.isFinite(serverXP) && serverXP > state.totalXP) {
+          setState({ totalXP: serverXP, log: state.log });
+        }
+      })
+      .catch(() => { /* silent — offline-tolerant */ });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const award = useCallback((action: XPAction, multiplier = 1, options: { silent?: boolean } = {}) => {
     const xp = XP_VALUES[action] * multiplier;
     const prevLevel = levelFromXP(state.totalXP).level;
@@ -81,6 +101,10 @@ export function useXP() {
       totalXP: nextTotal,
       log: [{ action, xp, at: new Date().toISOString() }, ...state.log].slice(0, MAX_LOG),
     });
+
+    // Mirror the award to the backend so progress survives across devices.
+    // Fire-and-forget: a network failure here doesn't undo the local update.
+    api.awardXP({ reason: action, amount: xp }).catch(() => { /* silent */ });
 
     if (!options.silent) {
       if (newLevel > prevLevel) {

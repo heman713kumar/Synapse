@@ -12,23 +12,34 @@ import { SkeletonList } from './ui/Skeleton';
 import { toast } from './ui/Toaster';
 import { compactNumber, timeAgo, truncate } from '../utils/format';
 
+// Accept BOTH snake_case (what some backend endpoints return) and camelCase
+// (what the global Idea/User types use). Whichever the API delivers, the
+// `pick*` helpers below normalize at the read site so the JSX stays clean.
 interface IdeaData {
   id: string;
+  ideaId?: string;             // some endpoints use ideaId instead of id
   title: string;
   description?: string;
   summary?: string;
-  likes_count: number;
-  comments_count: number;
-  created_at: string;
+  likes_count?: number;        likesCount?: number;
+  comments_count?: number;     commentsCount?: number;
+  created_at?: string;         createdAt?: string;
 }
 
 interface UserData {
   id: string;
+  userId?: string;
   username: string;
-  profile_picture: string;
-  bio: string;
-  followers_count: number;
+  profile_picture?: string;    avatarUrl?: string;
+  bio?: string;
+  followers_count?: number;    followersCount?: number;
 }
+
+const pickLikes    = (i: IdeaData) => i.likes_count    ?? i.likesCount    ?? 0;
+const pickComments = (i: IdeaData) => i.comments_count ?? i.commentsCount ?? 0;
+const pickDate     = (i: IdeaData) => i.created_at     ?? i.createdAt     ?? '';
+const pickAvatar   = (u: UserData) => u.profile_picture ?? u.avatarUrl    ?? '';
+const pickFollowers= (u: UserData) => u.followers_count ?? u.followersCount ?? 0;
 
 const TrendingAndRecommendations: React.FC = () => {
   const [trending, setTrending] = useState<IdeaData[]>([]);
@@ -70,9 +81,9 @@ const TrendingAndRecommendations: React.FC = () => {
           <h3 className="font-semibold leading-snug">{idea.title}</h3>
           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{truncate(idea.description || idea.summary || '', 140)}</p>
           <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1"><Heart className="h-3 w-3" /> {compactNumber(idea.likes_count || 0)}</span>
-            <span className="inline-flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {compactNumber(idea.comments_count || 0)}</span>
-            <span className="ml-auto">{timeAgo(idea.created_at)}</span>
+            <span className="inline-flex items-center gap-1"><Heart className="h-3 w-3" /> {compactNumber(pickLikes(idea))}</span>
+            <span className="inline-flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {compactNumber(pickComments(idea))}</span>
+            <span className="ml-auto">{timeAgo(pickDate(idea))}</span>
           </div>
         </CardContent>
       </Card>
@@ -82,11 +93,11 @@ const TrendingAndRecommendations: React.FC = () => {
   const UserTile: React.FC<{ user: UserData }> = ({ user }) => (
     <Card interactive className="h-full">
       <CardContent className="p-5 flex items-start gap-3">
-        <Avatar src={user.profile_picture} name={user.username} size="md" />
+        <Avatar src={pickAvatar(user)} name={user.username} size="md" />
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold truncate">{user.username}</h3>
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{user.bio}</p>
-          <p className="text-[11px] text-muted-foreground mt-1">{compactNumber(user.followers_count || 0)} followers</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{compactNumber(pickFollowers(user))} followers</p>
         </div>
         <Button size="sm" variant="outline" leftIcon={<UserPlus className="h-3.5 w-3.5" />} onClick={() => toast.success(`Following ${user.username}`)}>
           Follow

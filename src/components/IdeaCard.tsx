@@ -214,7 +214,17 @@ const IdeaCardComponent: React.FC<IdeaCardProps> = ({ idea, setPage }) => {
         {tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {tags.slice(0, 4).map((tag) => (
-              <Badge key={tag} variant="soft" size="sm">#{tag}</Badge>
+              <button
+                key={tag}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setPage('tag', tag); }}
+                aria-label={`Browse ideas tagged ${tag}`}
+                className="focus-ring rounded-full"
+              >
+                <Badge variant="soft" size="sm" className="hover:bg-primary/15 hover:text-primary transition-colors cursor-pointer">
+                  #{tag}
+                </Badge>
+              </button>
             ))}
             {tags.length > 4 && <Badge variant="ghost" size="sm">+{tags.length - 4}</Badge>}
           </div>

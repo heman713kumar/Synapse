@@ -30,7 +30,6 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@supabase/supabase-js": "^2.89.0",
     "@tiptap/extension-code-block-lowlight": "^3.23.6",
     "@tiptap/extension-link": "^3.23.6",
     "@tiptap/extension-mention": "^3.23.6",

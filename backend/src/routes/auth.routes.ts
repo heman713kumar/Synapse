@@ -70,11 +70,11 @@ function validateDisplayName(name: string): { valid: boolean; error?: string } {
     return { valid: true };
 }
 
-// Get JWT secret from environment (required for token signing)
-const JWT_SECRET = process.env.JWT_SECRET || 'default-insecure-secret';
-if (!process.env.JWT_SECRET) {
-    console.warn('⚠️  JWT_SECRET not set in environment - using default insecure value. Set JWT_SECRET in .env for production!');
-}
+// JWT_SECRET is required. auth.middleware.ts already process.exit(1)s if it's
+// missing or set to the placeholder, so by the time this route file is loaded
+// we know the env var is valid. Use it directly — no fallback that would
+// silently produce tokens signed with a weak/known secret.
+const JWT_SECRET = process.env.JWT_SECRET as string;
 
 // Helper function to get expiresIn value (number in seconds)
 function getExpiresInSeconds(): number {
@@ -100,10 +100,21 @@ function getExpiresInSeconds(): number {
     return 7 * 24 * 60 * 60; // Default: 7 days
 }
 
+// Whitelist of user_type values the client is allowed to set on register.
+// Anything else falls back to 'thinker' — prevents `userType:"admin"` privilege
+// escalation through the open registration endpoint.
+const ALLOWED_USER_TYPES = ['thinker', 'builder', 'investor'] as const;
+
 // Register endpoint
 router.post('/register', registerLimiter, async (req: Request, res: Response) => {
     try {
-        const { email, username, password, displayName, userType } = req.body;
+        let { email, username, password, displayName, userType } = req.body;
+
+        // Normalize email + username to lowercase so case differences don't
+        // create duplicate accounts or break login lookup later.
+        if (typeof email === 'string') email = email.trim().toLowerCase();
+        if (typeof username === 'string') username = username.trim().toLowerCase();
+        if (typeof displayName === 'string') displayName = displayName.trim();
 
         // Validate all inputs
         const emailValidation = validateEmail(email);
@@ -125,6 +136,11 @@ router.post('/register', registerLimiter, async (req: Request, res: Response) =>
         if (!displayNameValidation.valid) {
             return res.status(400).json({ error: displayNameValidation.error });
         }
+
+        // Enforce userType whitelist (rather than trusting whatever the client sent).
+        const safeUserType = ALLOWED_USER_TYPES.includes(userType)
+            ? userType
+            : 'thinker';
 
         // Check if user already exists (log generic message for security)
         const userExists = await query(
@@ -148,7 +164,7 @@ router.post('/register', registerLimiter, async (req: Request, res: Response) =>
           `INSERT INTO users (email, username, display_name, user_type, password_hash, email_verification_token, email_verification_token_expires)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING id, email, username, display_name, user_type, created_at`,
-          [email, username, displayName, userType || 'thinker', hashedPassword, verificationToken, tokenExpires]
+          [email, username, displayName, safeUserType, hashedPassword, verificationToken, tokenExpires]
         );
 
         if (result.rows.length === 0) {
@@ -209,11 +225,14 @@ router.post('/register', registerLimiter, async (req: Request, res: Response) =>
 // Login endpoint
 router.post('/login', loginLimiter, async (req: Request, res: Response) => {
    try {
-        const { email, password } = req.body;
+        let { email, password } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
+
+        // Normalize so login matches whatever case the user typed at register.
+        if (typeof email === 'string') email = email.trim().toLowerCase();
 
         // Validate email format
         const emailValidation = validateEmail(email);
@@ -221,19 +240,29 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Invalid email format' });
         }
 
+        // Include email_verified so the frontend can show a "verify your email"
+        // banner without a second round trip.
         const result = await query(
-          `SELECT id, email, username, display_name, user_type, password_hash, onboarding_completed, created_at, avatar_url, bio, skills, interests 
+          `SELECT id, email, username, display_name, user_type, password_hash, onboarding_completed, created_at, avatar_url, bio, skills, interests, email_verified
            FROM users WHERE email = $1`,
           [email]
         );
 
         if (result.rows.length === 0) {
+          // Same message as wrong-password so email-existence isn't leaked.
           return res.status(401).json({ error: 'Invalid credentials' });
         }
         const user = result.rows[0];
 
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
         if (!isPasswordValid) {
+          // Fire-and-forget audit log for failed login attempt.
+          query(
+            `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, created_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())`,
+            [user.id, 'LOGIN_FAILED', 'USER', user.id, JSON.stringify({ email })]
+          ).catch(err => console.error('Failed to write LOGIN_FAILED audit log:', err));
+
           return res.status(401).json({ error: 'Invalid credentials' });
         }
 
@@ -247,11 +276,19 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
           options
         );
 
+        // Audit successful login (fire-and-forget so a logging error doesn't
+        // block the user from getting their response).
+        query(
+            `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details, created_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())`,
+            [user.id, 'LOGIN_SUCCESS', 'USER', user.id, JSON.stringify({ email })]
+        ).catch(err => console.error('Failed to write LOGIN_SUCCESS audit log:', err));
+
         console.log('User logged in successfully:', user.email);
         res.json({
           message: 'Login successful',
           user: {
-            userId: user.id, // <-- (FIXED)
+            userId: user.id,
             email: user.email,
             username: user.username,
             displayName: user.display_name,
@@ -261,6 +298,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response) => {
             skills: user.skills || [],
             interests: user.interests || [],
             onboardingCompleted: user.onboarding_completed,
+            emailVerified: user.email_verified === true,
             createdAt: user.created_at
           },
           token
@@ -373,11 +411,13 @@ router.post('/verify-email', async (req: Request, res: Response) => {
 // Resend verification email
 router.post('/resend-verification', resendEmailLimiter, async (req: Request, res: Response) => {
     try {
-        const { email } = req.body;
+        let { email } = req.body;
 
         if (!email) {
             return res.status(400).json({ error: 'Email is required' });
         }
+
+        if (typeof email === 'string') email = email.trim().toLowerCase();
 
         // Find user
         const result = await query(
@@ -442,11 +482,13 @@ router.post('/resend-verification', resendEmailLimiter, async (req: Request, res
 // Request password reset
 router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: Response) => {
     try {
-        const { email } = req.body;
+        let { email } = req.body;
 
         if (!email) {
             return res.status(400).json({ error: 'Email is required' });
         }
+
+        if (typeof email === 'string') email = email.trim().toLowerCase();
 
         // Find user
         const result = await query(

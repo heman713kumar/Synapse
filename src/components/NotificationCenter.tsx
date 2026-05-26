@@ -14,7 +14,9 @@ import { toast } from './ui/Toaster';
 import { timeAgo } from '../utils/format';
 import { cn } from '../utils/cn';
 
-interface Notification {
+// Renamed from `Notification` so it doesn't shadow the global one in src/types.ts.
+// This is the snake-case shape returned by /api/notifications/unread specifically.
+interface NotificationCenterItem {
   id: number;
   title: string;
   description: string;
@@ -43,7 +45,7 @@ const PRIORITY_BADGE: Record<string, { variant: 'destructive' | 'warning' | 'sof
 };
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationCenterItem[]>([]);
   const [preferences, setPreferences] = useState<Preference[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');

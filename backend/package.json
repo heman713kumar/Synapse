@@ -5,7 +5,9 @@
   "main": "dist/index.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "nodemon --exec \"npx ts-node\" src/index.ts",
+    "dev": "nodemon --exec \"npx ts-node --transpile-only\" src/index.ts",
+    "migrate": "npx ts-node --transpile-only src/db/migrate.ts",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
     "build": "tsc",
     "build:watch": "tsc --watch",

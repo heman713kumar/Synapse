@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useLocalStorage } from './useLocalStorage';
+import api from '../services/backendApiService';
 
 interface StreakState {
   lastVisitDate: string; // YYYY-MM-DD
@@ -38,6 +39,21 @@ export function useStreak() {
       currentStreak: newStreak,
       longestStreak: Math.max(state.longestStreak, newStreak),
     });
+
+    // Mirror to backend so streak persists across devices. Fire-and-forget;
+    // backend response (if any) might bump our local longest streak.
+    api.tickStreak()
+      .then((res) => {
+        const serverLongest = Number(res?.longest_streak ?? 0);
+        if (Number.isFinite(serverLongest) && serverLongest > state.longestStreak) {
+          setState({
+            lastVisitDate: today,
+            currentStreak: Math.max(newStreak, Number(res?.current_streak ?? 0)),
+            longestStreak: serverLongest,
+          });
+        }
+      })
+      .catch(() => { /* silent — works offline */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

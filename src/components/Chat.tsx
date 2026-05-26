@@ -12,6 +12,7 @@ import { toast } from './ui/Toaster';
 import { Reactions } from './Reactions';
 import { smartTime, userName } from '../utils/format';
 import { cn } from '../utils/cn';
+import { NotFound } from './NotFound';
 
 interface ChatProps {
   conversationId: string;
@@ -208,13 +209,10 @@ export const Chat: React.FC<ChatProps> = ({ conversationId, currentUser, setPage
 
   if (error || !conversation) {
     return (
-      <div className="h-screen flex items-center justify-center p-4">
-        <EmptyState
-          title={error ? 'Could not load chat' : 'Conversation not found'}
-          description={error ?? 'This conversation may have been removed.'}
-          action={{ label: 'Back to inbox', onClick: () => setPage('inbox') }}
-        />
-      </div>
+      <NotFound
+        setPage={setPage}
+        message={error ? `Could not load chat: ${error}` : 'This conversation was deleted or you no longer have access.'}
+      />
     );
   }
 

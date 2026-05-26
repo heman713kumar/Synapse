@@ -15,13 +15,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
 import { Textarea } from './ui/Textarea';
 import { Tooltip } from './ui/Tooltip';
 import { Skeleton, SkeletonText } from './ui/Skeleton';
-import { EmptyState } from './ui/EmptyState';
 import { Reactions } from './Reactions';
 import { toast } from './ui/Toaster';
 import { ReportModal } from './ReportModal';
 import { SmartCollaboratorMatch } from './SmartCollaboratorMatch';
 import { ShareDialog } from './ShareDialog';
 import { PitchDeckModal } from './PitchDeckModal';
+import { NotFound } from './NotFound';
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
 import { timeAgo, userName, compactNumber } from '../utils/format';
 import { cn } from '../utils/cn';
@@ -156,13 +156,7 @@ export const IdeaDetail: React.FC<IdeaDetailProps> = ({
   }
 
   if (!idea) {
-    return (
-      <EmptyState
-        title="Idea not found"
-        description="This idea may have been removed or you don't have access to it."
-        action={{ label: 'Back to feed', onClick: () => setPage('feed') }}
-      />
-    );
+    return <NotFound setPage={setPage} message="This idea was deleted, set to private, or never existed." />;
   }
 
   const isOwner = currentUser?.userId === idea.ownerId;

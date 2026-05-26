@@ -13,12 +13,14 @@ import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
 import { Tooltip } from './ui/Tooltip';
 import { EmptyState } from './ui/EmptyState';
-import { SkeletonList } from './ui/Skeleton';
+import { PageLoader } from './ui/Spinner';
+import { preloadImages } from '../utils/preloadImages';
 import { cn } from '../utils/cn';
 import { useDebounce } from '../hooks/useDebounce';
 import { RecentlyViewed } from './RecentlyViewed';
 import { StreakBadge } from './StreakBadge';
 import { DailyPrompt } from './DailyPrompt';
+import { ProfileCompletionBanner } from './ProfileCompletionBanner';
 import { greeting } from '../hooks/useTimeOfDay';
 
 type SortOrder =
@@ -67,14 +69,48 @@ const calculateSkillMatchScore = (idea: Idea, user: User | null): number => {
   return required.filter(skill => userSkills.has(skill)).length;
 };
 
-const SORT_OPTIONS: { value: SortOrder; label: string; icon: React.ElementType }[] = [
-  { value: 'relevant', label: 'For you', icon: Sparkles },
-  { value: 'trending', label: 'Trending', icon: TrendingUp },
-  { value: 'likes', label: 'Most liked', icon: Heart },
-  { value: 'newest', label: 'Newest', icon: Clock },
-  { value: 'collaboration', label: 'Open collab', icon: Users },
-  { value: 'skillMatch', label: 'Skill match', icon: Target },
+/**
+ * Sort options.
+ *
+ * `requiresUser: true` options are hidden for guests because the underlying
+ * score function returns 0 for `user === null`, which made the button
+ * silently behave identically to "Newest" — looked broken.
+ */
+const SORT_OPTIONS: {
+  value: SortOrder; label: string; icon: React.ElementType; requiresUser?: boolean;
+}[] = [
+  { value: 'relevant',      label: 'For you',     icon: Sparkles,   requiresUser: true  },
+  { value: 'trending',      label: 'Trending',    icon: TrendingUp                      },
+  { value: 'likes',         label: 'Most liked',  icon: Heart                           },
+  { value: 'newest',        label: 'Newest',      icon: Clock                           },
+  { value: 'collaboration', label: 'Open collab', icon: Users                           },
+  { value: 'skillMatch',    label: 'Skill match', icon: Target,     requiresUser: true  },
 ];
+
+/**
+ * Score a feed item (idea / achievement / milestone) for a given sort order.
+ * Returns 0 for sort orders that don't apply to a non-idea post — the comparator
+ * then falls back to date, so achievement/milestone posts still get a sensible
+ * order rather than being frozen wherever the API returned them.
+ */
+function scoreFeedItem(item: FeedItem, sortOrder: SortOrder, user: User | null): number {
+  if (item.type === 'idea') {
+    const idea = item.data;
+    switch (sortOrder) {
+      case 'likes':         return idea.likesCount || 0;
+      case 'trending':      return calculateTrendingScore(idea);
+      case 'relevant':      return calculateRelevanceScore(idea, user);
+      case 'skillMatch':    return calculateSkillMatchScore(idea, user);
+      case 'collaboration': return calculateCollaborationScore(idea);
+    }
+  }
+  // Achievement / milestone posts can still participate in "Most liked" if their
+  // payload exposes a count; otherwise fall through to date tie-break.
+  if (sortOrder === 'likes') {
+    return (item.data as any).likesCount || 0;
+  }
+  return 0;
+}
 
 interface FeedProps {
   currentUser: User | null;
@@ -96,12 +132,36 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
     skills: [] as string[],
   });
 
+  // If the user logs out while sitting on the Feed, drop any sort that needs
+  // a profile to score against — otherwise the active pill silently produces
+  // a date-ordered list and looks broken.
+  useEffect(() => {
+    if (!currentUser && (sortOrder === 'relevant' || sortOrder === 'skillMatch')) {
+      setSortOrder('trending');
+    }
+  }, [currentUser, sortOrder]);
+
   useEffect(() => {
     let isMounted = true;
     const loadFeed = async () => {
       try {
         const data = await api.getFeedItems();
-        if (isMounted) setAllFeedItems(data || []);
+        if (!isMounted) return;
+        setAllFeedItems(data || []);
+
+        // Keep the loader up until every avatar / cover image referenced by
+        // the feed has been decoded by the browser. Without this, the cards
+        // render immediately but pictures "pop in" one by one over the next
+        // few hundred ms — looks broken on slow connections.
+        const imageUrls: Array<string | undefined> = [];
+        (data || []).forEach((item: any) => {
+          const d = item?.data || {};
+          imageUrls.push(d.ownerAvatarUrl);                 // some FeedItems
+          imageUrls.push(d.owner?.avatarUrl);               // ideas
+          imageUrls.push(d.user?.avatarUrl);                // achievement / milestone posts
+          imageUrls.push(d.coverImageUrl);                  // ideas with cover banners
+        });
+        await preloadImages(imageUrls);
       } catch (err) {
         console.error('Feed load error:', err);
         if (isMounted) setAllFeedItems([]);
@@ -135,20 +195,19 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
       return true;
     });
 
+    // Sort with a uniform scorer so achievement/milestone posts also respect the
+    // active sort instead of always slotting in by date. Every sort falls back
+    // to newest-first when scores tie, so identical-score items don't appear
+    // in arbitrary input order.
     items.sort((a, b) => {
       const dateA = new Date(a.data.createdAt || 0).getTime();
       const dateB = new Date(b.data.createdAt || 0).getTime();
       if (sortOrder === 'newest') return dateB - dateA;
-      if (a.type === 'idea' && b.type === 'idea') {
-        switch (sortOrder) {
-          case 'likes': return (b.data.likesCount || 0) - (a.data.likesCount || 0);
-          case 'relevant': return calculateRelevanceScore(b.data, currentUser) - calculateRelevanceScore(a.data, currentUser);
-          case 'skillMatch': return calculateSkillMatchScore(b.data, currentUser) - calculateSkillMatchScore(a.data, currentUser);
-          case 'trending': return calculateTrendingScore(b.data) - calculateTrendingScore(a.data);
-          case 'collaboration': return calculateCollaborationScore(b.data) - calculateCollaborationScore(a.data);
-        }
-      }
-      return dateB - dateA;
+
+      const scoreDiff =
+        scoreFeedItem(b, sortOrder, currentUser) -
+        scoreFeedItem(a, sortOrder, currentUser);
+      return scoreDiff !== 0 ? scoreDiff : dateB - dateA;
     });
     return items;
   }, [allFeedItems, debouncedQuery, filters, sortOrder, currentUser]);
@@ -186,6 +245,9 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
         {currentUser && <StreakBadge variant="compact" />}
       </header>
 
+      {/* Profile completion nudge — dismissible, hides at 80%+ */}
+      {currentUser && <ProfileCompletionBanner currentUser={currentUser} setPage={setPage} />}
+
       {/* Daily prompt — dismissible per day */}
       {currentUser && <div className="mb-4"><DailyPrompt setPage={setPage} /></div>}
 
@@ -210,28 +272,32 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
         </Button>
       </div>
 
-      {/* Sort pills */}
+      {/* Sort pills — hide options that require a logged-in user. Avoids the
+          UX trap where a guest taps "For you" and gets the same result as
+          "Newest" because the relevance score has nothing to personalize against. */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin">
-        {SORT_OPTIONS.map((opt) => {
-          const Icon = opt.icon;
-          const isActive = sortOrder === opt.value;
-          return (
-            <Tooltip key={opt.value} content={opt.label === 'For you' ? 'Personalized to your skills + interests' : ''}>
-              <button
-                onClick={() => setSortOrder(opt.value)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border focus-ring',
-                  isActive
-                    ? 'bg-primary text-primary-foreground border-primary shadow-glow-sm'
-                    : 'bg-secondary/50 border-border text-muted-foreground hover:text-foreground hover:border-primary/30'
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {opt.label}
-              </button>
-            </Tooltip>
-          );
-        })}
+        {SORT_OPTIONS
+          .filter((opt) => !opt.requiresUser || currentUser)
+          .map((opt) => {
+            const Icon = opt.icon;
+            const isActive = sortOrder === opt.value;
+            return (
+              <Tooltip key={opt.value} content={opt.label === 'For you' ? 'Personalized to your skills + interests' : ''}>
+                <button
+                  onClick={() => setSortOrder(opt.value)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border focus-ring',
+                    isActive
+                      ? 'bg-primary text-primary-foreground border-primary shadow-glow-sm'
+                      : 'bg-secondary/50 border-border text-muted-foreground hover:text-foreground hover:border-primary/30'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {opt.label}
+                </button>
+              </Tooltip>
+            );
+          })}
       </div>
 
       {/* Filter drawer */}
@@ -303,9 +369,13 @@ export const Feed: React.FC<FeedProps> = ({ currentUser, setPage }) => {
         )}
       </AnimatePresence>
 
-      {/* Feed */}
+      {/* Feed — keep the branded loader visible until both data and all
+          referenced images (avatars, covers) have been preloaded. */}
       {isLoading ? (
-        <SkeletonList count={4} />
+        <PageLoader
+          label={currentUser ? 'Curating ideas for you…' : 'Discovering brilliant ideas…'}
+          minHeight="60vh"
+        />
       ) : filteredItems.length > 0 ? (
         <motion.div className="space-y-5" initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.04 } } }}>
           {filteredItems.map((item, idx) => {

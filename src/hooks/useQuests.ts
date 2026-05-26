@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useLocalStorage } from './useLocalStorage';
+import api from '../services/backendApiService';
 
 export interface Quest {
   id: string;
@@ -68,6 +69,12 @@ export function useQuests() {
           completed: done ? [...prev.completed, questId] : prev.completed,
         };
       });
+      // Mirror to backend so quest progress survives across devices. Each
+      // backend tick increments by 1, so call N times for a multi-step bump.
+      // Fire-and-forget — local already updated, network failure is fine.
+      for (let i = 0; i < by; i++) {
+        api.incrementQuest(questId).catch(() => { /* silent */ });
+      }
     },
     [setState]
   );
