@@ -71,7 +71,13 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
 
   const filteredIdeas = useMemo(() => {
     let list = allIdeas;
-    if (selectedSector !== 'All') list = list.filter((i) => i.sector === selectedSector);
+    // Filter by category/sector - check both fields for compatibility
+    if (selectedSector !== 'All') {
+      list = list.filter((i) => {
+        const ideaCategory = i.category || i.sector;
+        return ideaCategory === selectedSector;
+      });
+    }
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase();
       list = list.filter(

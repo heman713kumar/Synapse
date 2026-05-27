@@ -154,6 +154,7 @@ export interface Idea {
   summary: string;
   tags: string[]; // Ensure this is always an array []
   sector?: string;
+  category?: string; // Backend returns 'category' field
   region?: string;
   requiredSkills: string[]; // Ensure this is always an array []
   questionnaire?: Questionnaire; // Make optional
@@ -179,6 +180,7 @@ export interface Idea {
   isPublic: boolean; // Keep non-optional based on usage
   aiAnalysis?: any;
   updatedAt?: string;
+  stage?: string; // Backend returns 'stage' field
   // Add fields from feed query
   id?: string; // Backend might send 'id' sometimes? Keep optional for safety.
 }
