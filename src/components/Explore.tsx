@@ -167,17 +167,17 @@ export const Explore: React.FC<ExploreProps> = ({ currentUser, setPage }) => {
 
           {/* SECTORS */}
           <TabsContent value="sectors" className="space-y-8 mt-0">
-            {/* Sector pills - Enhanced */}
+            {/* Sector pills */}
             <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-3 pl-1">
               {(['All', ...SECTORS] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setSelectedSector(s)}
                   className={cn(
-                    'shrink-0 px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all duration-200 backdrop-blur-sm',
+                    'shrink-0 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-200 whitespace-nowrap hover:scale-105',
                     selectedSector === s
-                      ? 'bg-gradient-to-r from-primary to-purple-600 text-white border-primary shadow-lg shadow-primary/50 dark:shadow-primary/40 scale-105'
-                      : 'bg-white border-primary/30 dark:bg-slate-900/50 dark:border-primary/25 text-foreground/70 dark:text-foreground/70 hover:text-primary dark:hover:text-primary/90 hover:border-primary/60 dark:hover:border-primary/60 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:shadow-md hover:shadow-primary/30 dark:hover:shadow-primary/30'
+                      ? 'bg-purple-600 text-white border-purple-700 shadow-lg'
+                      : 'bg-gray-100 text-purple-600 border-purple-300 hover:bg-gray-200'
                   )}
                 >
                   {s}
