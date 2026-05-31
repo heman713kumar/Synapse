@@ -44,12 +44,10 @@ try {
         host: dbConfig.host,
         port: dbConfig.port ? parseInt(dbConfig.port, 10) : 5432,
         database: dbConfig.database,
-        // Force SSL in production, allow flexible SSL in development
-        ssl: process.env.NODE_ENV === 'production' 
-            ? { rejectUnauthorized: true }
-            : sslEnabled 
-                ? { rejectUnauthorized: false }
-                : false,
+        // Respect sslmode parameter - disable cert verification for pooler connections
+        ssl: sslEnabled 
+            ? { rejectUnauthorized: false }
+            : false,
     };
     
     // Log the actual config being used
